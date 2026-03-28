@@ -725,6 +725,203 @@ def _suggest_fix(reason: str) -> str:
     return "コードを見直そう"
 
 
+# ========== 次にやることガイド ==========
+
+def generate_action_guide(
+    analyzer: "CodeAnalyzer",
+    func_scores: dict[str, int],
+    warnings: list[dict],
+    impact: dict,
+    duplicates: list[dict],
+) -> list[dict]:
+    """「次にやること」をステップバイステップで生成する.
+
+    最もスコアが低い関数から順に、具体的な改善手順を出す。
+    初心者が「何から手を付ければいいか」を迷わないようにする。
+    """
+    actions = []
+
+    # スコアが低い順にソート
+    sorted_funcs = sorted(func_scores.items(), key=lambda x: x[1])
+
+    for qname, score in sorted_funcs[:5]:  # 上位5件まで
+        func = analyzer.functions.get(qname)
+        if func is None:
+            continue
+
+        steps = []
+        priority = "high" if score < 50 else "medium" if score < 70 else "low"
+
+        # 問題の種類に応じたステップを生成
+        if func.n_lines > 100:
+            steps.append({
+                "step": "関数を分割する",
+                "detail": f"この関数は{func.n_lines}行。以下の手順で分割しよう:",
+                "substeps": [
+                    "関数内のコメントや空行を探す。それが処理の区切り",
+                    "区切りごとに新しい関数名を考える（例: _validate_input, _process_data）",
+                    "区切り部分を新しい関数にコピーし、元の場所は関数呼び出しに置き換える",
+                    "動作が変わっていないことを確認する（テストがあれば実行）",
+                ],
+                "time": f"約{func.n_lines // 25}分",
+            })
+        elif func.n_lines > 50:
+            steps.append({
+                "step": "長い関数を短くする",
+                "detail": f"この関数は{func.n_lines}行。50行以下が目標",
+                "substeps": [
+                    "繰り返し出てくるパターンを探す",
+                    "if文の中身が長い場合、中身を別関数に切り出す",
+                    "ループの中身が長い場合も同様",
+                ],
+                "time": f"約{max(5, func.n_lines // 10)}分",
+            })
+
+        if func.complexity > 8 or func.cognitive_complexity > 15:
+            steps.append({
+                "step": "分岐を減らす",
+                "detail": f"複雑度{func.complexity} / 認知的複雑度{func.cognitive_complexity}。読みにくい",
+                "substeps": [
+                    "「早期リターン」を使う: 条件を満たさない場合にすぐreturnする",
+                    "例: if not x: return None を関数の最初に置く",
+                    "深いネスト（if の中の if の中の for...）を平坦にする",
+                    "条件が複雑な場合、条件を変数に入れる（is_valid = x > 0 and y < 10）",
+                ],
+                "time": f"約{max(5, (func.complexity - 8) * 3)}分",
+            })
+
+        if not func.docstring and not func.is_private and func.n_lines > 10:
+            steps.append({
+                "step": "説明を書く",
+                "detail": "この関数が何をするか、1行で書こう",
+                "substeps": [
+                    '関数の最初の行に """この関数は〇〇を△△する.""" と書く',
+                    "引数が3つ以上あるなら、各引数の説明も書く",
+                ],
+                "time": "約2分",
+            })
+
+        if func.security_issues:
+            steps.append({
+                "step": "セキュリティ問題を修正する",
+                "detail": f"{len(func.security_issues)}件のセキュリティ問題がある",
+                "substeps": [f"修正: {issue}" for issue in func.security_issues],
+                "time": f"約{len(func.security_issues) * 10}分",
+            })
+
+        affected = impact["functions"].get(qname, {}).get("affected_functions", 0)
+        if affected >= 3:
+            steps.append({
+                "step": "変更前にテストを書く",
+                "detail": f"この関数を変えると{affected}個の関数に影響する。先にテストを書いて安全網を作ろう",
+                "substeps": [
+                    f"pytest でテストファイルを作る（test_{func.name}.py）",
+                    "現在の動作を確認するテストを最低1つ書く",
+                    "テストが通ることを確認してからリファクタリングする",
+                ],
+                "time": "約10分",
+            })
+
+        if qname in {f for d in duplicates for f in d["functions"]}:
+            steps.append({
+                "step": "重複コードを統合する",
+                "detail": "他の関数とほぼ同じコードがある",
+                "substeps": [
+                    "重複している関数を見比べて、違いを確認する",
+                    "共通部分を1つの関数にまとめる",
+                    "違いは引数で吸収する",
+                ],
+                "time": "約15分",
+            })
+
+        if steps:
+            total_time = sum(
+                int(s["time"].replace("約", "").replace("分", ""))
+                for s in steps if "分" in s["time"]
+            )
+            actions.append({
+                "function": func.name,
+                "file": func.file,
+                "line": func.line,
+                "score": score,
+                "priority": priority,
+                "steps": steps,
+                "total_time": f"約{total_time}分",
+            })
+
+    return actions
+
+
+def _build_action_guide_html(actions: list[dict]) -> str:
+    """「次にやること」のHTML生成."""
+    if not actions:
+        return '<p style="color:#34c759;font-weight:600">問題は見つかりませんでした。コードは健康です！</p>'
+
+    parts = []
+
+    # 最優先の1つを大きく表示
+    top = actions[0]
+    parts.append(f'''
+    <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+                border-radius:16px;padding:28px 32px;color:#fff;margin-bottom:24px">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:0.8">
+        今日やるべき1つ
+      </div>
+      <div style="font-size:24px;font-weight:700;margin:8px 0">
+        {top["function"]} を改善する
+      </div>
+      <div style="font-size:14px;opacity:0.9">
+        {top["file"]}:{top["line"]} / スコア {top["score"]}点 / 推定 {top["total_time"]}
+      </div>
+    </div>
+    ''')
+
+    # 各アクションの詳細
+    for i, action in enumerate(actions):
+        bg = "#fff5f5" if action["priority"] == "high" else "#fffff0" if action["priority"] == "medium" else "#f0fff4"
+        border_color = "#fed7d7" if action["priority"] == "high" else "#fefcbf" if action["priority"] == "medium" else "#c6f6d5"
+        label_color = "#c53030" if action["priority"] == "high" else "#975a16" if action["priority"] == "medium" else "#276749"
+        label = "優先度: 高" if action["priority"] == "high" else "優先度: 中" if action["priority"] == "medium" else "優先度: 低"
+
+        steps_html = ""
+        for j, step in enumerate(action["steps"]):
+            substeps = "".join(f'<li style="margin:4px 0;color:#4a5568">{s}</li>' for s in step["substeps"])
+            steps_html += f'''
+            <div style="margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
+                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
+                  {j+1}
+                </span>
+                <span style="font-weight:600;font-size:15px">{step["step"]}</span>
+                <span style="color:#a0aec0;font-size:12px;margin-left:auto">{step["time"]}</span>
+              </div>
+              <div style="margin-left:32px;font-size:13px;color:#718096">{step["detail"]}</div>
+              <ol style="margin-left:48px;margin-top:6px;font-size:13px">{substeps}</ol>
+            </div>
+            '''
+
+        parts.append(f'''
+        <div style="background:{bg};border:1px solid {border_color};border-radius:12px;
+                    padding:20px 24px;margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div>
+              <span style="font-weight:700;font-size:16px">{action["function"]}</span>
+              <span style="color:#a0aec0;font-size:13px;margin-left:8px">{action["file"]}:{action["line"]}</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="color:{label_color};font-size:12px;font-weight:600">{label}</span>
+              <span style="background:{label_color};color:#fff;padding:2px 10px;border-radius:8px;
+                           font-size:12px;font-weight:600">スコア {action["score"]}</span>
+            </div>
+          </div>
+          {steps_html}
+        </div>
+        ''')
+
+    return "\n".join(parts)
+
+
 # ========== グラフ指標 ==========
 
 def calc_graph_metrics(nodes: list[str], edges: list[tuple[str, str]]) -> dict:
@@ -847,6 +1044,10 @@ def generate_report(
             "impact": impact["modules"].get(mname, {}).get("affected_modules", 0),
         })
 
+    # 次にやることガイド
+    action_guide = generate_action_guide(analyzer, func_scores, warnings, impact, duplicates)
+    action_guide_html = _build_action_guide_html(action_guide)
+
     html = _render_html(
         nodes_json, edges_json, modules_json, warnings, duplicates,
         avg_score, health, health_label, n_high, n_medium,
@@ -854,6 +1055,7 @@ def generate_report(
         sum(m.n_lines for m in analyzer.modules.values()),
         len(call_edges), call_metrics, len(import_cycles),
         hotspots=hotspots or [], total_debt=total_debt, sec_count=sec_count,
+        action_guide_html=action_guide_html,
     )
     output_path.write_text(html, encoding="utf-8")
 
@@ -861,7 +1063,8 @@ def generate_report(
 def _render_html(nodes, edges, modules, warnings, duplicates,
                  avg_score, health, health_label, n_high, n_medium,
                  n_files, n_functions, n_lines, n_edges, metrics, n_cycles,
-                 hotspots=None, total_debt=0, sec_count=0):
+                 hotspots=None, total_debt=0, sec_count=0,
+                 action_guide_html=""):
 
     warnings_html = _build_warnings_html(warnings)
     modules_html = _build_modules_html(modules)
@@ -1019,8 +1222,10 @@ tr:hover td {{ background: #f9f9fb; }}
   <!-- タブ切り替え -->
   <div class="section">
     <div class="tabs">
-      <div class="tab active" onclick="switchTab('problems')">問題点</div>
-      <div class="tab" onclick="switchTab('graph')">呼び出しマップ</div>
+      <div class="tab active" onclick="switchTab('actions')">次にやること</div>
+      <div class="tab" onclick="switchTab('problems')">問題点</div>
+      <div class="tab" onclick="switchTab('graph')">2Dマップ</div>
+      <div class="tab" onclick="switchTab('graph3d')">3Dマップ</div>
       <div class="tab" onclick="switchTab('impact')">変更影響</div>
       <div class="tab" onclick="switchTab('duplicates')">重複コード</div>
       <div class="tab" onclick="switchTab('files')">ファイル</div>
@@ -1028,8 +1233,14 @@ tr:hover td {{ background: #f9f9fb; }}
       <div class="tab" onclick="switchTab('functions')">全関数</div>
     </div>
 
+    <!-- 次にやることタブ -->
+    <div id="tab-actions" class="tab-content active">
+      <div class="section-desc">スコアが低い関数から順に、具体的な改善手順を表示。上から1つずつやっていこう</div>
+      {action_guide_html}
+    </div>
+
     <!-- 問題点タブ -->
-    <div id="tab-problems" class="tab-content active">
+    <div id="tab-problems" class="tab-content">
       <div class="section-desc">上から順に重要。「直し方」も参考にしてください</div>
       {warnings_html}
     </div>
@@ -1049,6 +1260,12 @@ tr:hover td {{ background: #f9f9fb; }}
         <span><span class="legend-dot" style="background:#007aff"></span>通常</span>
         <span>丸が大きい = よく使われる関数</span>
       </div>
+    </div>
+
+    <!-- 3Dマップタブ -->
+    <div id="tab-graph3d" class="tab-content">
+      <div class="section-desc">マウスでドラッグして回転、スクロールでズーム。ノードの大きさ = 重要度、色 = モジュール</div>
+      <div id="graph3d-container" style="width:100%;height:600px;border-radius:12px;background:#0a0a1a;position:relative"></div>
     </div>
 
     <!-- 変更影響タブ -->
@@ -1084,6 +1301,8 @@ tr:hover td {{ background: #f9f9fb; }}
 
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 const nodes = {json.dumps(nodes)};
 const edges = {json.dumps(edges)};
@@ -1095,17 +1314,20 @@ function switchTab(name) {{
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   event.target.classList.add('active');
-  if (name === 'graph') {{ frame = 0; animate(); }}
+  if (name === 'graph') {{
+    setTimeout(() => {{
+      initCanvas();
+      frame = 0;
+      animate();
+    }}, 100);
+  }}
+  if (name === 'graph3d') {{ init3D(); }}
 }}
 
 // グラフ描画
 const canvas = document.getElementById('graphCanvas');
 const ctx = canvas.getContext('2d');
-const dpr = window.devicePixelRatio || 1;
-canvas.width = canvas.offsetWidth * dpr;
-canvas.height = 520 * dpr;
-ctx.scale(dpr, dpr);
-const W = canvas.offsetWidth, H = 520;
+let W = 900, H = 520;
 
 const COLORS = ['#007aff','#34c759','#ff9500','#af52de','#5ac8fa','#ffcc00','#ff2d55','#64d2ff','#30d158','#ff6b6b'];
 const moduleColors = {{}};
@@ -1115,20 +1337,38 @@ nodes.forEach(n => {{
 }});
 
 const positions = {{}};
-nodes.forEach((n, i) => {{
-  const angle = (i / nodes.length) * Math.PI * 2;
-  const r = 120 + Math.random() * 100;
-  positions[n.id] = {{ x: W/2 + Math.cos(angle)*r, y: H/2 + Math.sin(angle)*r, vx: 0, vy: 0 }};
-}});
+let canvasInited = false;
+
+function initCanvas() {{
+  const c = document.getElementById('graphCanvas');
+  if (!c) return;
+  W = c.parentElement.clientWidth || 900;
+  H = 520;
+  const dpr = window.devicePixelRatio || 1;
+  c.width = W * dpr;
+  c.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // ノード位置を再初期化
+  nodes.forEach((n, i) => {{
+    const angle = (i / nodes.length) * Math.PI * 2;
+    const r = Math.min(W, H) * 0.3 + Math.random() * 50;
+    positions[n.id] = {{ x: W/2 + Math.cos(angle)*r, y: H/2 + Math.sin(angle)*r, vx: 0, vy: 0 }};
+  }});
+  canvasInited = true;
+}}
 
 function simulate() {{
+  if (!canvasInited) return;
+  const repulsion = Math.max(2000, W * 3);
   nodes.forEach(a => {{
     nodes.forEach(b => {{
       if (a.id === b.id) return;
       const pa = positions[a.id], pb = positions[b.id];
+      if (!pa || !pb) return;
       const dx = pa.x-pb.x, dy = pa.y-pb.y;
       const dist = Math.max(Math.sqrt(dx*dx+dy*dy), 1);
-      const f = 3000 / (dist*dist);
+      const f = repulsion / (dist*dist);
       pa.vx += (dx/dist)*f; pa.vy += (dy/dist)*f;
     }});
   }});
@@ -1137,21 +1377,23 @@ function simulate() {{
     if (!pa || !pb) return;
     const dx = pb.x-pa.x, dy = pb.y-pa.y;
     const dist = Math.max(Math.sqrt(dx*dx+dy*dy), 1);
-    const f = dist * 0.004;
+    const f = dist * 0.003;
     pa.vx += (dx/dist)*f; pa.vy += (dy/dist)*f;
     pb.vx -= (dx/dist)*f; pb.vy -= (dy/dist)*f;
   }});
   nodes.forEach(n => {{
     const p = positions[n.id];
+    if (!p) return;
     p.vx += (W/2-p.x)*0.001; p.vy += (H/2-p.y)*0.001;
     p.vx *= 0.88; p.vy *= 0.88;
     p.x += p.vx; p.y += p.vy;
-    p.x = Math.max(20, Math.min(W-20, p.x));
-    p.y = Math.max(20, Math.min(H-20, p.y));
+    p.x = Math.max(30, Math.min(W-30, p.x));
+    p.y = Math.max(30, Math.min(H-30, p.y));
   }});
 }}
 
 function draw() {{
+  if (!canvasInited) return;
   ctx.fillStyle = '#f5f5f7';
   ctx.fillRect(0, 0, W, H);
   edges.forEach(e => {{
@@ -1178,9 +1420,131 @@ function draw() {{
 
 let frame = 0;
 function animate() {{ if (frame < 250) simulate(); draw(); frame++; requestAnimationFrame(animate); }}
-animate();
-function resetView() {{ frame = 0; }}
+function resetView() {{ initCanvas(); frame = 0; }}
 function toggleLabels() {{ showLabels = !showLabels; }}
+
+// ========== 3Dグラフ ==========
+let scene3d, camera3d, renderer3d, controls3d, graph3dInited = false;
+const pos3d = {{}};
+const COLORS3D = [0x007aff, 0x34c759, 0xff9500, 0xaf52de, 0x5ac8fa,
+                   0xffcc00, 0xff2d55, 0x64d2ff, 0x30d158, 0xff6b6b];
+const modColor3d = {{}};
+let ci3d = 0;
+nodes.forEach(n => {{ if (!(n.module in modColor3d)) modColor3d[n.module] = COLORS3D[ci3d++ % COLORS3D.length]; }});
+
+function init3D() {{
+  if (graph3dInited) return;
+  graph3dInited = true;
+  const container = document.getElementById('graph3d-container');
+  const w = container.clientWidth, h = 600;
+
+  scene3d = new THREE.Scene();
+  scene3d.background = new THREE.Color(0x0a0a1a);
+  scene3d.fog = new THREE.Fog(0x0a0a1a, 300, 800);
+
+  camera3d = new THREE.PerspectiveCamera(60, w/h, 1, 2000);
+  camera3d.position.set(0, 0, 250);
+
+  renderer3d = new THREE.WebGLRenderer({{ antialias: true }});
+  renderer3d.setSize(w, h);
+  renderer3d.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(renderer3d.domElement);
+
+  controls3d = new THREE.OrbitControls(camera3d, renderer3d.domElement);
+  controls3d.enableDamping = true;
+  controls3d.dampingFactor = 0.05;
+
+  // ライト
+  const ambient = new THREE.AmbientLight(0x404060, 0.6);
+  scene3d.add(ambient);
+  const point = new THREE.PointLight(0xffffff, 1.2, 500);
+  point.position.set(100, 100, 100);
+  scene3d.add(point);
+
+  // ノード配置（球面状に初期配置）
+  nodes.forEach((n, i) => {{
+    const phi = Math.acos(-1 + (2*i) / nodes.length);
+    const theta = Math.sqrt(nodes.length * Math.PI) * phi;
+    const r = 80 + Math.random() * 40;
+    pos3d[n.id] = {{
+      x: r * Math.cos(theta) * Math.sin(phi),
+      y: r * Math.sin(theta) * Math.sin(phi),
+      z: r * Math.cos(phi),
+      vx: 0, vy: 0, vz: 0
+    }};
+
+    const size = Math.max(1.5, 1.5 + n.in_degree * 0.8 + n.pagerank * 80);
+    const geo = new THREE.SphereGeometry(size, 16, 16);
+    const color = n.is_isolated ? 0xff3b30 : modColor3d[n.module] || 0x007aff;
+    const mat = new THREE.MeshPhongMaterial({{
+      color: color,
+      emissive: color,
+      emissiveIntensity: n.score < 50 ? 0.5 : 0.15,
+      shininess: 80,
+      transparent: true,
+      opacity: n.score < 50 ? 1.0 : 0.75,
+    }});
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(pos3d[n.id].x, pos3d[n.id].y, pos3d[n.id].z);
+    mesh.userData = n;
+    scene3d.add(mesh);
+
+    // テキストラベル（スプライト）
+    if (size > 2) {{
+      const canvas2 = document.createElement('canvas');
+      const ctx2 = canvas2.getContext('2d');
+      canvas2.width = 256;
+      canvas2.height = 64;
+      ctx2.fillStyle = 'rgba(0,0,0,0)';
+      ctx2.fillRect(0, 0, 256, 64);
+      ctx2.font = '24px -apple-system, sans-serif';
+      ctx2.fillStyle = '#ffffff';
+      ctx2.textAlign = 'center';
+      ctx2.fillText(n.label, 128, 40);
+      const tex = new THREE.CanvasTexture(canvas2);
+      const spriteMat = new THREE.SpriteMaterial({{ map: tex, transparent: true, opacity: 0.85 }});
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.position.set(pos3d[n.id].x, pos3d[n.id].y + size + 3, pos3d[n.id].z);
+      sprite.scale.set(size * 4, size * 1, 1);
+      scene3d.add(sprite);
+    }}
+  }});
+
+  // エッジ
+  const edgeMat = new THREE.LineBasicMaterial({{ color: 0x334455, transparent: true, opacity: 0.25 }});
+  edges.forEach(e => {{
+    const pa = pos3d[e.source], pb = pos3d[e.target];
+    if (!pa || !pb) return;
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(pa.x, pa.y, pa.z),
+      new THREE.Vector3(pb.x, pb.y, pb.z),
+    ]);
+    const line = new THREE.Line(geo, edgeMat);
+    scene3d.add(line);
+  }});
+
+  // パーティクル背景
+  const starGeo = new THREE.BufferGeometry();
+  const starVerts = [];
+  for (let i = 0; i < 500; i++) {{
+    starVerts.push((Math.random()-0.5)*600, (Math.random()-0.5)*600, (Math.random()-0.5)*600);
+  }}
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVerts, 3));
+  const starMat = new THREE.PointsMaterial({{ color: 0x334466, size: 0.5 }});
+  scene3d.add(new THREE.Points(starGeo, starMat));
+
+  animate3D();
+}}
+
+function animate3D() {{
+  requestAnimationFrame(animate3D);
+  controls3d.update();
+
+  // ゆっくり回転
+  scene3d.rotation.y += 0.001;
+
+  renderer3d.render(scene3d, camera3d);
+}}
 </script>
 </body>
 </html>"""
