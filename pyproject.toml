@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code-quality-graph"
+version = "0.1.0"
+description = "Analyze Python code quality using graph theory. Generates beginner-friendly HTML reports."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "hajime", email = "hajime.godgod@gmail.com"},
+]
+keywords = ["code-quality", "graph-theory", "static-analysis", "python", "visualization"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "numpy",
+]
+
+[project.scripts]
+code-quality-graph = "code_quality_graph.analyzer:main"
+
+[project.urls]
+Homepage = "https://github.com/hajimedayo328/code-quality-graph"
+Repository = "https://github.com/hajimedayo328/code-quality-graph"
+
+[tool.setuptools.packages.find]
+where = ["src"]
