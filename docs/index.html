@@ -92,7 +92,7 @@ tr:hover td { background: #f9f9fb; }
 
 <div class="header">
   <h1>Code Quality Graph <span class="health-badge caution">要注意</span></h1>
-  <p class="subtitle">2ファイル / 31関数 / 1764行 / 36本の呼び出し関係</p>
+  <p class="subtitle">2ファイル / 31関数 / 1871行 / 36本の呼び出し関係</p>
 </div>
 
 <div class="container">
@@ -114,7 +114,7 @@ tr:hover td { background: #f9f9fb; }
       <div class="desc">ファイルが互いに依存。0が理想</div>
     </div>
     <div class="card">
-      <div class="value red">40.4h</div>
+      <div class="value red">44.0h</div>
       <div class="label">技術的負債</div>
       <div class="desc">全部直すのにかかる推定時間</div>
     </div>
@@ -420,7 +420,7 @@ tr:hover td { background: #f9f9fb; }
 <div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">_analyze_file</span></div><div class="msg">93行。長めなので分割を検討</div><div class="loc">analyzer.py:89</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
 <div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">_analyze_file</span></div><div class="msg">複雑度26。分岐が多すぎて読めない</div><div class="loc">analyzer.py:89</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
 <div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">_analyze_file</span></div><div class="msg">認知的複雑度65。読むのが非常に困難</div><div class="loc">analyzer.py:89</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">analyzer.py</span></div><div class="msg">1764行。ファイルが大きすぎる</div><div class="fix">責任ごとにファイルを分割しよう。1ファイル200-400行が理想</div></div>
+<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">analyzer.py</span></div><div class="msg">1871行。ファイルが大きすぎる</div><div class="fix">責任ごとにファイルを分割しよう。1ファイル200-400行が理想</div></div>
 <div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_detect_cycles_in_modules</span></div><div class="msg">複雑度12。やや複雑</div><div class="loc">analyzer.py:239</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
 <div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_detect_cycles_in_modules</span></div><div class="msg">認知的複雑度33。読むのが非常に困難</div><div class="loc">analyzer.py:239</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
 <div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">calc_impact_scores</span></div><div class="msg">56行。長めなので分割を検討</div><div class="loc">analyzer.py:268</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
@@ -432,11 +432,11 @@ tr:hover td { background: #f9f9fb; }
 <div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">generate_report</span></div><div class="msg">複雑度9。やや複雑</div><div class="loc">analyzer.py:990</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
 <div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">generate_report</span></div><div class="msg">説明コメントがない</div><div class="loc">analyzer.py:990</div><div class="fix">関数の先頭に """この関数は何をするか""" を1行書こう</div></div>
 <div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">generate_report</span></div><div class="msg">引数が16個。多すぎ</div><div class="loc">analyzer.py:990</div><div class="fix">関連する引数をdataclassや辞書にまとめよう</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_render_html</span></div><div class="msg">488行もある。50行以下に分割しよう</div><div class="loc">analyzer.py:1063</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
+<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_render_html</span></div><div class="msg">595行もある。50行以下に分割しよう</div><div class="loc">analyzer.py:1063</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
 <div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_render_html</span></div><div class="msg">引数が20個。多すぎ</div><div class="loc">analyzer.py:1063</div><div class="fix">関連する引数をdataclassや辞書にまとめよう</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">main</span></div><div class="msg">82行。長めなので分割を検討</div><div class="loc">analyzer.py:1679</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">main</span></div><div class="msg">複雑度9。やや複雑</div><div class="loc">analyzer.py:1679</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">main</span></div><div class="msg">説明コメントがない</div><div class="loc">analyzer.py:1679</div><div class="fix">関数の先頭に """この関数は何をするか""" を1行書こう</div></div>
+<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">main</span></div><div class="msg">82行。長めなので分割を検討</div><div class="loc">analyzer.py:1786</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
+<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">main</span></div><div class="msg">複雑度9。やや複雑</div><div class="loc">analyzer.py:1786</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
+<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">main</span></div><div class="msg">説明コメントがない</div><div class="loc">analyzer.py:1786</div><div class="fix">関数の先頭に """この関数は何をするか""" を1行書こう</div></div>
 <div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">walk</span></div><div class="msg">複雑度12。やや複雑</div><div class="loc">analyzer.py:363</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
 <div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">walk</span></div><div class="msg">説明コメントがない</div><div class="loc">analyzer.py:363</div><div class="fix">関数の先頭に """この関数は何をするか""" を1行書こう</div></div>
 <div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">walk</span></div><div class="msg">変更すると5個の関数に影響する</div><div class="loc">analyzer.py:363</div><div class="fix">この関数を変える時は、呼び出し元も確認しよう</div></div>
@@ -505,7 +505,7 @@ tr:hover td { background: #f9f9fb; }
     <!-- ファイルタブ -->
     <div id="tab-files" class="tab-content">
       <div class="section-desc">バーの長さ = コード量。長すぎるファイルは分割を検討</div>
-      <div class="module-row"><span class="score-pill s-good">80</span><span class="name">analyzer.py</span><div class="bar" style="width: 300px"></div><span class="info">1764行 / 31関数 / 影響0ファイル</span></div>
+      <div class="module-row"><span class="score-pill s-good">80</span><span class="name">analyzer.py</span><div class="bar" style="width: 300px"></div><span class="info">1871行 / 31関数 / 影響0ファイル</span></div>
 <div class="module-row"><span class="score-pill s-good">100</span><span class="name">__init__.py</span><div class="bar" style="width: 4px"></div><span class="info">0行 / 0関数 / 影響0ファイル</span></div>
     </div>
 
@@ -527,8 +527,8 @@ tr:hover td { background: #f9f9fb; }
 <tr><td><span class="score-pill s-ok">60</span></td><td><strong>walk</strong></td><td style="color:#86868b">analyzer.py:363</td><td>33</td><td>12</td><td>23</td><td>44分</td><td></td></tr>
 <tr><td><span class="score-pill s-ok">65</span></td><td><strong>_detect_cycles_in_modules</strong></td><td style="color:#86868b">analyzer.py:239</td><td>25</td><td>12</td><td>33</td><td>74分</td><td></td></tr>
 <tr><td><span class="score-pill s-ok">65</span></td><td><strong>_calc_cognitive_complexity</strong></td><td style="color:#86868b">analyzer.py:351</td><td>48</td><td>12</td><td>33</td><td>74分</td><td></td></tr>
-<tr><td><span class="score-pill s-ok">65</span></td><td><strong>_render_html</strong></td><td style="color:#86868b">analyzer.py:1063</td><td>488</td><td>3</td><td>2</td><td>876分</td><td></td></tr>
-<tr><td><span class="score-pill s-ok">65</span></td><td><strong>main</strong></td><td style="color:#86868b">analyzer.py:1679</td><td>82</td><td>9</td><td>2</td><td>69分</td><td></td></tr>
+<tr><td><span class="score-pill s-ok">65</span></td><td><strong>_render_html</strong></td><td style="color:#86868b">analyzer.py:1063</td><td>595</td><td>3</td><td>2</td><td>1090分</td><td></td></tr>
+<tr><td><span class="score-pill s-ok">65</span></td><td><strong>main</strong></td><td style="color:#86868b">analyzer.py:1786</td><td>82</td><td>9</td><td>2</td><td>69分</td><td></td></tr>
 <tr><td><span class="score-pill s-ok">70</span></td><td><strong>analyze_git_history</strong></td><td style="color:#86868b">analyzer.py:462</td><td>51</td><td>10</td><td>10</td><td>12分</td><td></td></tr>
 <tr><td><span class="score-pill s-good">85</span></td><td><strong>_suggest_fix</strong></td><td style="color:#86868b">analyzer.py:710</td><td>16</td><td>9</td><td>8</td><td>5分</td><td></td></tr>
 <tr><td><span class="score-pill s-good">85</span></td><td><strong>_build_action_guide_html</strong></td><td style="color:#86868b">analyzer.py:855</td><td>68</td><td>5</td><td>4</td><td>36分</td><td></td></tr>
@@ -539,12 +539,12 @@ tr:hover td { background: #f9f9fb; }
 <tr><td><span class="score-pill s-good">100</span></td><td><strong>_check_security</strong></td><td style="color:#86868b">analyzer.py:442</td><td>7</td><td>3</td><td>3</td><td>-</td><td></td></tr>
 <tr><td><span class="score-pill s-good">100</span></td><td><strong>check_module_security</strong></td><td style="color:#86868b">analyzer.py:451</td><td>7</td><td>3</td><td>3</td><td>-</td><td><span style="background:#fde8e8;color:#c0392b;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600">未使用？</span></td></tr>
 <tr><td><span class="score-pill s-good">100</span></td><td><strong>calc_hotspots</strong></td><td style="color:#86868b">analyzer.py:515</td><td>38</td><td>5</td><td>9</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_warnings_html</strong></td><td style="color:#86868b">analyzer.py:1553</td><td>16</td><td>3</td><td>2</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_modules_html</strong></td><td style="color:#86868b">analyzer.py:1571</td><td>17</td><td>3</td><td>1</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_functions_html</strong></td><td style="color:#86868b">analyzer.py:1590</td><td>27</td><td>5</td><td>7</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_duplicates_html</strong></td><td style="color:#86868b">analyzer.py:1619</td><td>14</td><td>3</td><td>2</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_hotspots_html</strong></td><td style="color:#86868b">analyzer.py:1635</td><td>20</td><td>4</td><td>2</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_impact_html</strong></td><td style="color:#86868b">analyzer.py:1657</td><td>18</td><td>5</td><td>2</td><td>-</td><td></td></tr>
+<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_warnings_html</strong></td><td style="color:#86868b">analyzer.py:1660</td><td>16</td><td>3</td><td>2</td><td>-</td><td></td></tr>
+<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_modules_html</strong></td><td style="color:#86868b">analyzer.py:1678</td><td>17</td><td>3</td><td>1</td><td>-</td><td></td></tr>
+<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_functions_html</strong></td><td style="color:#86868b">analyzer.py:1697</td><td>27</td><td>5</td><td>7</td><td>-</td><td></td></tr>
+<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_duplicates_html</strong></td><td style="color:#86868b">analyzer.py:1726</td><td>14</td><td>3</td><td>2</td><td>-</td><td></td></tr>
+<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_hotspots_html</strong></td><td style="color:#86868b">analyzer.py:1742</td><td>20</td><td>4</td><td>2</td><td>-</td><td></td></tr>
+<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_impact_html</strong></td><td style="color:#86868b">analyzer.py:1764</td><td>18</td><td>5</td><td>2</td><td>-</td><td></td></tr>
 <tr><td><span class="score-pill s-good">100</span></td><td><strong>__init__</strong></td><td style="color:#86868b">analyzer.py:78</td><td>4</td><td>1</td><td>0</td><td>-</td><td><span style="background:#fde8e8;color:#c0392b;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600">未使用？</span></td></tr>
 <tr><td><span class="score-pill s-good">100</span></td><td><strong>analyze</strong></td><td style="color:#86868b">analyzer.py:83</td><td>5</td><td>3</td><td>4</td><td>-</td><td></td></tr>
 <tr><td><span class="score-pill s-good">100</span></td><td><strong>_find_parent_class</strong></td><td style="color:#86868b">analyzer.py:183</td><td>7</td><td>5</td><td>10</td><td>-</td><td></td></tr>
@@ -557,7 +557,7 @@ tr:hover td { background: #f9f9fb; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
-const nodes = [{"id": "analyzer.build_call_graph", "label": "build_call_graph", "module": "analyzer", "file": "analyzer.py", "line": 201, "lines": 15, "complexity": 6, "cognitive": 11, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.build_import_graph", "label": "build_import_graph", "module": "analyzer", "file": "analyzer.py", "line": 220, "lines": 17, "complexity": 7, "cognitive": 17, "score": 90, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 6, "security": 0}, {"id": "analyzer._detect_cycles_in_modules", "label": "_detect_cycles_in_modules", "module": "analyzer", "file": "analyzer.py", "line": 239, "lines": 25, "complexity": 12, "cognitive": 33, "score": 65, "pagerank": 0.0093, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 74, "security": 0}, {"id": "analyzer.calc_impact_scores", "label": "calc_impact_scores", "module": "analyzer", "file": "analyzer.py", "line": 268, "lines": 56, "complexity": 13, "cognitive": 30, "score": 50, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 82, "security": 0}, {"id": "analyzer.find_duplicates", "label": "find_duplicates", "module": "analyzer", "file": "analyzer.py", "line": 328, "lines": 19, "complexity": 7, "cognitive": 6, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._calc_cognitive_complexity", "label": "_calc_cognitive_complexity", "module": "analyzer", "file": "analyzer.py", "line": 351, "lines": 48, "complexity": 12, "cognitive": 33, "score": 65, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 74, "security": 0}, {"id": "analyzer._estimate_tech_debt", "label": "_estimate_tech_debt", "module": "analyzer", "file": "analyzer.py", "line": 403, "lines": 19, "complexity": 4, "cognitive": 3, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._check_security", "label": "_check_security", "module": "analyzer", "file": "analyzer.py", "line": 442, "lines": 7, "complexity": 3, "cognitive": 3, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.check_module_security", "label": "check_module_security", "module": "analyzer", "file": "analyzer.py", "line": 451, "lines": 7, "complexity": 3, "cognitive": 3, "score": 100, "pagerank": 0.00484, "in_degree": 0, "impact": 0, "is_isolated": true, "debt_min": 0, "security": 0}, {"id": "analyzer.analyze_git_history", "label": "analyze_git_history", "module": "analyzer", "file": "analyzer.py", "line": 462, "lines": 51, "complexity": 10, "cognitive": 10, "score": 70, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 12, "security": 0}, {"id": "analyzer.calc_hotspots", "label": "calc_hotspots", "module": "analyzer", "file": "analyzer.py", "line": 515, "lines": 38, "complexity": 5, "cognitive": 9, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.calc_quality_scores", "label": "calc_quality_scores", "module": "analyzer", "file": "analyzer.py", "line": 557, "lines": 151, "complexity": 29, "cognitive": 53, "score": 20, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 421, "security": 0}, {"id": "analyzer._suggest_fix", "label": "_suggest_fix", "module": "analyzer", "file": "analyzer.py", "line": 710, "lines": 16, "complexity": 9, "cognitive": 8, "score": 85, "pagerank": 0.0093, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 5, "security": 0}, {"id": "analyzer.generate_action_guide", "label": "generate_action_guide", "module": "analyzer", "file": "analyzer.py", "line": 730, "lines": 123, "complexity": 18, "cognitive": 24, "score": 30, "pagerank": 0.00633, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 223, "security": 0}, {"id": "analyzer._build_action_guide_html", "label": "_build_action_guide_html", "module": "analyzer", "file": "analyzer.py", "line": 855, "lines": 68, "complexity": 5, "cognitive": 4, "score": 85, "pagerank": 0.00633, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 36, "security": 0}, {"id": "analyzer.calc_graph_metrics", "label": "calc_graph_metrics", "module": "analyzer", "file": "analyzer.py", "line": 927, "lines": 59, "complexity": 20, "cognitive": 32, "score": 30, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 129, "security": 0}, {"id": "analyzer.generate_report", "label": "generate_report", "module": "analyzer", "file": "analyzer.py", "line": 990, "lines": 71, "complexity": 9, "cognitive": 4, "score": 60, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 47, "security": 0}, {"id": "analyzer._render_html", "label": "_render_html", "module": "analyzer", "file": "analyzer.py", "line": 1063, "lines": 488, "complexity": 3, "cognitive": 2, "score": 65, "pagerank": 0.00633, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 876, "security": 0}, {"id": "analyzer._build_warnings_html", "label": "_build_warnings_html", "module": "analyzer", "file": "analyzer.py", "line": 1553, "lines": 16, "complexity": 3, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_modules_html", "label": "_build_modules_html", "module": "analyzer", "file": "analyzer.py", "line": 1571, "lines": 17, "complexity": 3, "cognitive": 1, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_functions_html", "label": "_build_functions_html", "module": "analyzer", "file": "analyzer.py", "line": 1590, "lines": 27, "complexity": 5, "cognitive": 7, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_duplicates_html", "label": "_build_duplicates_html", "module": "analyzer", "file": "analyzer.py", "line": 1619, "lines": 14, "complexity": 3, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_hotspots_html", "label": "_build_hotspots_html", "module": "analyzer", "file": "analyzer.py", "line": 1635, "lines": 20, "complexity": 4, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_impact_html", "label": "_build_impact_html", "module": "analyzer", "file": "analyzer.py", "line": 1657, "lines": 18, "complexity": 5, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.main", "label": "main", "module": "analyzer", "file": "analyzer.py", "line": 1679, "lines": 82, "complexity": 9, "cognitive": 2, "score": 65, "pagerank": 0.00484, "in_degree": 0, "impact": 0, "is_isolated": false, "debt_min": 69, "security": 0}, {"id": "analyzer.CodeAnalyzer.__init__", "label": "__init__", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 78, "lines": 4, "complexity": 1, "cognitive": 0, "score": 100, "pagerank": 0.00484, "in_degree": 0, "impact": 0, "is_isolated": true, "debt_min": 0, "security": 0}, {"id": "analyzer.CodeAnalyzer.analyze", "label": "analyze", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 83, "lines": 5, "complexity": 3, "cognitive": 4, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.CodeAnalyzer._analyze_file", "label": "_analyze_file", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 89, "lines": 93, "complexity": 26, "cognitive": 65, "score": 35, "pagerank": 0.0093, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 326, "security": 0}, {"id": "analyzer.CodeAnalyzer._find_parent_class", "label": "_find_parent_class", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 183, "lines": 7, "complexity": 5, "cognitive": 10, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.CodeAnalyzer._get_call_name", "label": "_get_call_name", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 191, "lines": 6, "complexity": 3, "cognitive": 4, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.walk", "label": "walk", "module": "analyzer", "file": "analyzer.py", "line": 363, "lines": 33, "complexity": 12, "cognitive": 23, "score": 60, "pagerank": 0.01662, "in_degree": 3, "impact": 5, "is_isolated": false, "debt_min": 44, "security": 0}];
+const nodes = [{"id": "analyzer.build_call_graph", "label": "build_call_graph", "module": "analyzer", "file": "analyzer.py", "line": 201, "lines": 15, "complexity": 6, "cognitive": 11, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.build_import_graph", "label": "build_import_graph", "module": "analyzer", "file": "analyzer.py", "line": 220, "lines": 17, "complexity": 7, "cognitive": 17, "score": 90, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 6, "security": 0}, {"id": "analyzer._detect_cycles_in_modules", "label": "_detect_cycles_in_modules", "module": "analyzer", "file": "analyzer.py", "line": 239, "lines": 25, "complexity": 12, "cognitive": 33, "score": 65, "pagerank": 0.0093, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 74, "security": 0}, {"id": "analyzer.calc_impact_scores", "label": "calc_impact_scores", "module": "analyzer", "file": "analyzer.py", "line": 268, "lines": 56, "complexity": 13, "cognitive": 30, "score": 50, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 82, "security": 0}, {"id": "analyzer.find_duplicates", "label": "find_duplicates", "module": "analyzer", "file": "analyzer.py", "line": 328, "lines": 19, "complexity": 7, "cognitive": 6, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._calc_cognitive_complexity", "label": "_calc_cognitive_complexity", "module": "analyzer", "file": "analyzer.py", "line": 351, "lines": 48, "complexity": 12, "cognitive": 33, "score": 65, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 74, "security": 0}, {"id": "analyzer._estimate_tech_debt", "label": "_estimate_tech_debt", "module": "analyzer", "file": "analyzer.py", "line": 403, "lines": 19, "complexity": 4, "cognitive": 3, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._check_security", "label": "_check_security", "module": "analyzer", "file": "analyzer.py", "line": 442, "lines": 7, "complexity": 3, "cognitive": 3, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.check_module_security", "label": "check_module_security", "module": "analyzer", "file": "analyzer.py", "line": 451, "lines": 7, "complexity": 3, "cognitive": 3, "score": 100, "pagerank": 0.00484, "in_degree": 0, "impact": 0, "is_isolated": true, "debt_min": 0, "security": 0}, {"id": "analyzer.analyze_git_history", "label": "analyze_git_history", "module": "analyzer", "file": "analyzer.py", "line": 462, "lines": 51, "complexity": 10, "cognitive": 10, "score": 70, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 12, "security": 0}, {"id": "analyzer.calc_hotspots", "label": "calc_hotspots", "module": "analyzer", "file": "analyzer.py", "line": 515, "lines": 38, "complexity": 5, "cognitive": 9, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.calc_quality_scores", "label": "calc_quality_scores", "module": "analyzer", "file": "analyzer.py", "line": 557, "lines": 151, "complexity": 29, "cognitive": 53, "score": 20, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 421, "security": 0}, {"id": "analyzer._suggest_fix", "label": "_suggest_fix", "module": "analyzer", "file": "analyzer.py", "line": 710, "lines": 16, "complexity": 9, "cognitive": 8, "score": 85, "pagerank": 0.0093, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 5, "security": 0}, {"id": "analyzer.generate_action_guide", "label": "generate_action_guide", "module": "analyzer", "file": "analyzer.py", "line": 730, "lines": 123, "complexity": 18, "cognitive": 24, "score": 30, "pagerank": 0.00633, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 223, "security": 0}, {"id": "analyzer._build_action_guide_html", "label": "_build_action_guide_html", "module": "analyzer", "file": "analyzer.py", "line": 855, "lines": 68, "complexity": 5, "cognitive": 4, "score": 85, "pagerank": 0.00633, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 36, "security": 0}, {"id": "analyzer.calc_graph_metrics", "label": "calc_graph_metrics", "module": "analyzer", "file": "analyzer.py", "line": 927, "lines": 59, "complexity": 20, "cognitive": 32, "score": 30, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 129, "security": 0}, {"id": "analyzer.generate_report", "label": "generate_report", "module": "analyzer", "file": "analyzer.py", "line": 990, "lines": 71, "complexity": 9, "cognitive": 4, "score": 60, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 47, "security": 0}, {"id": "analyzer._render_html", "label": "_render_html", "module": "analyzer", "file": "analyzer.py", "line": 1063, "lines": 595, "complexity": 3, "cognitive": 2, "score": 65, "pagerank": 0.00633, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 1090, "security": 0}, {"id": "analyzer._build_warnings_html", "label": "_build_warnings_html", "module": "analyzer", "file": "analyzer.py", "line": 1660, "lines": 16, "complexity": 3, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_modules_html", "label": "_build_modules_html", "module": "analyzer", "file": "analyzer.py", "line": 1678, "lines": 17, "complexity": 3, "cognitive": 1, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_functions_html", "label": "_build_functions_html", "module": "analyzer", "file": "analyzer.py", "line": 1697, "lines": 27, "complexity": 5, "cognitive": 7, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_duplicates_html", "label": "_build_duplicates_html", "module": "analyzer", "file": "analyzer.py", "line": 1726, "lines": 14, "complexity": 3, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_hotspots_html", "label": "_build_hotspots_html", "module": "analyzer", "file": "analyzer.py", "line": 1742, "lines": 20, "complexity": 4, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_impact_html", "label": "_build_impact_html", "module": "analyzer", "file": "analyzer.py", "line": 1764, "lines": 18, "complexity": 5, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.main", "label": "main", "module": "analyzer", "file": "analyzer.py", "line": 1786, "lines": 82, "complexity": 9, "cognitive": 2, "score": 65, "pagerank": 0.00484, "in_degree": 0, "impact": 0, "is_isolated": false, "debt_min": 69, "security": 0}, {"id": "analyzer.CodeAnalyzer.__init__", "label": "__init__", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 78, "lines": 4, "complexity": 1, "cognitive": 0, "score": 100, "pagerank": 0.00484, "in_degree": 0, "impact": 0, "is_isolated": true, "debt_min": 0, "security": 0}, {"id": "analyzer.CodeAnalyzer.analyze", "label": "analyze", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 83, "lines": 5, "complexity": 3, "cognitive": 4, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.CodeAnalyzer._analyze_file", "label": "_analyze_file", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 89, "lines": 93, "complexity": 26, "cognitive": 65, "score": 35, "pagerank": 0.0093, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 326, "security": 0}, {"id": "analyzer.CodeAnalyzer._find_parent_class", "label": "_find_parent_class", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 183, "lines": 7, "complexity": 5, "cognitive": 10, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.CodeAnalyzer._get_call_name", "label": "_get_call_name", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 191, "lines": 6, "complexity": 3, "cognitive": 4, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.walk", "label": "walk", "module": "analyzer", "file": "analyzer.py", "line": 363, "lines": 33, "complexity": 12, "cognitive": 23, "score": 60, "pagerank": 0.01662, "in_degree": 3, "impact": 5, "is_isolated": false, "debt_min": 44, "security": 0}];
 const edges = [{"source": "analyzer.build_import_graph", "target": "analyzer._detect_cycles_in_modules"}, {"source": "analyzer._calc_cognitive_complexity", "target": "analyzer.walk"}, {"source": "analyzer._calc_cognitive_complexity", "target": "analyzer.walk"}, {"source": "analyzer._calc_cognitive_complexity", "target": "analyzer.walk"}, {"source": "analyzer.calc_quality_scores", "target": "analyzer._suggest_fix"}, {"source": "analyzer.generate_report", "target": "analyzer.generate_action_guide"}, {"source": "analyzer.generate_report", "target": "analyzer._build_action_guide_html"}, {"source": "analyzer.generate_report", "target": "analyzer._render_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_warnings_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_modules_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_functions_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_duplicates_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_impact_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_hotspots_html"}, {"source": "analyzer.main", "target": "analyzer.CodeAnalyzer.analyze"}, {"source": "analyzer.main", "target": "analyzer.build_call_graph"}, {"source": "analyzer.main", "target": "analyzer.calc_graph_metrics"}, {"source": "analyzer.main", "target": "analyzer.build_import_graph"}, {"source": "analyzer.main", "target": "analyzer.calc_impact_scores"}, {"source": "analyzer.main", "target": "analyzer.find_duplicates"}, {"source": "analyzer.main", "target": "analyzer.analyze_git_history"}, {"source": "analyzer.main", "target": "analyzer.calc_hotspots"}, {"source": "analyzer.main", "target": "analyzer.calc_quality_scores"}, {"source": "analyzer.main", "target": "analyzer.generate_report"}, {"source": "analyzer.CodeAnalyzer.analyze", "target": "analyzer.CodeAnalyzer._analyze_file"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.walk"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.walk"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.CodeAnalyzer._find_parent_class"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.walk"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.walk"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer._calc_cognitive_complexity"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer._check_security"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer._estimate_tech_debt"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.CodeAnalyzer._get_call_name"}, {"source": "analyzer.CodeAnalyzer._find_parent_class", "target": "analyzer.walk"}, {"source": "analyzer.CodeAnalyzer._find_parent_class", "target": "analyzer.walk"}];
 let showLabels = true;
 
@@ -676,6 +676,64 @@ function animate() { if (frame < 250) simulate(); draw(); frame++; requestAnimat
 function resetView() { initCanvas(); frame = 0; }
 function toggleLabels() { showLabels = !showLabels; }
 
+// 2D クリック → ノード情報ポップアップ
+canvas.addEventListener('click', (e) => {
+  if (!canvasInited) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const mx = (e.clientX - rect.left);
+  const my = (e.clientY - rect.top);
+  let hit = null;
+  nodes.forEach(n => {
+    const p = positions[n.id];
+    if (!p) return;
+    const r = Math.max(3, 3 + n.in_degree * 2 + n.pagerank * 200);
+    const dx = mx - p.x, dy = my - p.y;
+    if (dx*dx + dy*dy < (r+5)*(r+5)) hit = n;
+  });
+  if (hit) {
+    showNodePopup(hit, e.clientX, e.clientY);
+  } else {
+    hideNodePopup();
+  }
+});
+
+// ポップアップ
+let popup = null;
+function showNodePopup(n, x, y) {
+  hideNodePopup();
+  popup = document.createElement('div');
+  const sc = n.score >= 80 ? '#34c759' : n.score >= 60 ? '#ff9500' : '#ff3b30';
+  popup.innerHTML = `
+    <div style="font-weight:700;font-size:16px;margin-bottom:8px">${n.label}</div>
+    <div style="display:grid;grid-template-columns:auto auto;gap:4px 16px;font-size:13px">
+      <span style="color:#86868b">ファイル</span><span>${n.file}:${n.line}</span>
+      <span style="color:#86868b">スコア</span><span style="color:${sc};font-weight:700">${n.score}点</span>
+      <span style="color:#86868b">行数</span><span>${n.lines}行</span>
+      <span style="color:#86868b">複雑さ</span><span>${n.complexity}</span>
+      <span style="color:#86868b">認知的</span><span>${n.cognitive}</span>
+      <span style="color:#86868b">影響範囲</span><span>${n.impact}関数</span>
+      <span style="color:#86868b">被呼出</span><span>${n.in_degree}箇所</span>
+      <span style="color:#86868b">負債</span><span>${n.debt_min}分</span>
+    </div>
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e5e5">
+      <a href="vscode://file/${encodeURIComponent(n.file)}:${n.line}"
+         style="color:#007aff;text-decoration:none;font-size:13px;font-weight:500">
+         VS Codeで開く
+      </a>
+    </div>
+  `;
+  popup.style.cssText = `position:fixed;left:${x+12}px;top:${y-10}px;
+    background:#fff;border-radius:12px;padding:16px 20px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.15);z-index:1000;
+    max-width:320px;border:1px solid #e5e5e5`;
+  document.body.appendChild(popup);
+}
+function hideNodePopup() {
+  if (popup) { popup.remove(); popup = null; }
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideNodePopup(); });
+
 // ========== 3Dグラフ ==========
 let scene3d, camera3d, renderer3d, controls3d, graph3dInited = false;
 const pos3d = {};
@@ -786,17 +844,66 @@ function init3D() {
   const starMat = new THREE.PointsMaterial({ color: 0x334466, size: 0.5 });
   scene3d.add(new THREE.Points(starGeo, starMat));
 
+  setup3DInteraction();
   animate3D();
 }
 
 function animate3D() {
   requestAnimationFrame(animate3D);
   controls3d.update();
-
-  // ゆっくり回転
   scene3d.rotation.y += 0.001;
-
   renderer3d.render(scene3d, camera3d);
+}
+
+function setup3DInteraction() {
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let hovered = null;
+  const tip = document.createElement('div');
+  tip.style.cssText = `position:fixed;display:none;background:rgba(10,10,26,0.92);
+    color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;z-index:1000;
+    pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,0.4);
+    font-family:-apple-system,sans-serif;max-width:280px;backdrop-filter:blur(8px)`;
+  document.body.appendChild(tip);
+
+  renderer3d.domElement.addEventListener('mousemove', (e) => {
+    const rect = renderer3d.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera3d);
+    const meshes = scene3d.children.filter(c => c.isMesh);
+    const intersects = raycaster.intersectObjects(meshes);
+
+    if (intersects.length > 0 && intersects[0].object.userData && intersects[0].object.userData.label) {
+      const n = intersects[0].object.userData;
+      hovered = n;
+      const sc = n.score >= 80 ? '#34c759' : n.score >= 60 ? '#ff9500' : '#ff3b30';
+      tip.innerHTML = `
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">${n.label}</div>
+        <div style="color:#a0aec0;font-size:12px;margin-bottom:6px">${n.file}:${n.line}</div>
+        <div style="display:grid;grid-template-columns:auto auto;gap:2px 12px;font-size:12px">
+          <span style="color:#a0aec0">スコア</span><span style="color:${sc};font-weight:700">${n.score}点</span>
+          <span style="color:#a0aec0">行数</span><span>${n.lines}</span>
+          <span style="color:#a0aec0">複雑さ</span><span>${n.complexity}</span>
+          <span style="color:#a0aec0">認知的</span><span>${n.cognitive}</span>
+          <span style="color:#a0aec0">影響</span><span>${n.impact}関数</span>
+        </div>
+      `;
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top = (e.clientY - 10) + 'px';
+      renderer3d.domElement.style.cursor = 'pointer';
+    } else {
+      hovered = null;
+      tip.style.display = 'none';
+      renderer3d.domElement.style.cursor = 'grab';
+    }
+  });
+
+  renderer3d.domElement.addEventListener('click', (e) => {
+    if (hovered) showNodePopup(hovered, e.clientX, e.clientY);
+  });
 }
 </script>
 </body>

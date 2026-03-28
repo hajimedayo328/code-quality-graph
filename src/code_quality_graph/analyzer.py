@@ -1423,6 +1423,64 @@ function animate() {{ if (frame < 250) simulate(); draw(); frame++; requestAnima
 function resetView() {{ initCanvas(); frame = 0; }}
 function toggleLabels() {{ showLabels = !showLabels; }}
 
+// 2D クリック → ノード情報ポップアップ
+canvas.addEventListener('click', (e) => {{
+  if (!canvasInited) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const mx = (e.clientX - rect.left);
+  const my = (e.clientY - rect.top);
+  let hit = null;
+  nodes.forEach(n => {{
+    const p = positions[n.id];
+    if (!p) return;
+    const r = Math.max(3, 3 + n.in_degree * 2 + n.pagerank * 200);
+    const dx = mx - p.x, dy = my - p.y;
+    if (dx*dx + dy*dy < (r+5)*(r+5)) hit = n;
+  }});
+  if (hit) {{
+    showNodePopup(hit, e.clientX, e.clientY);
+  }} else {{
+    hideNodePopup();
+  }}
+}});
+
+// ポップアップ
+let popup = null;
+function showNodePopup(n, x, y) {{
+  hideNodePopup();
+  popup = document.createElement('div');
+  const sc = n.score >= 80 ? '#34c759' : n.score >= 60 ? '#ff9500' : '#ff3b30';
+  popup.innerHTML = `
+    <div style="font-weight:700;font-size:16px;margin-bottom:8px">${{n.label}}</div>
+    <div style="display:grid;grid-template-columns:auto auto;gap:4px 16px;font-size:13px">
+      <span style="color:#86868b">ファイル</span><span>${{n.file}}:${{n.line}}</span>
+      <span style="color:#86868b">スコア</span><span style="color:${{sc}};font-weight:700">${{n.score}}点</span>
+      <span style="color:#86868b">行数</span><span>${{n.lines}}行</span>
+      <span style="color:#86868b">複雑さ</span><span>${{n.complexity}}</span>
+      <span style="color:#86868b">認知的</span><span>${{n.cognitive}}</span>
+      <span style="color:#86868b">影響範囲</span><span>${{n.impact}}関数</span>
+      <span style="color:#86868b">被呼出</span><span>${{n.in_degree}}箇所</span>
+      <span style="color:#86868b">負債</span><span>${{n.debt_min}}分</span>
+    </div>
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e5e5">
+      <a href="vscode://file/${{encodeURIComponent(n.file)}}:${{n.line}}"
+         style="color:#007aff;text-decoration:none;font-size:13px;font-weight:500">
+         VS Codeで開く
+      </a>
+    </div>
+  `;
+  popup.style.cssText = `position:fixed;left:${{x+12}}px;top:${{y-10}}px;
+    background:#fff;border-radius:12px;padding:16px 20px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.15);z-index:1000;
+    max-width:320px;border:1px solid #e5e5e5`;
+  document.body.appendChild(popup);
+}}
+function hideNodePopup() {{
+  if (popup) {{ popup.remove(); popup = null; }}
+}}
+document.addEventListener('keydown', (e) => {{ if (e.key === 'Escape') hideNodePopup(); }});
+
 // ========== 3Dグラフ ==========
 let scene3d, camera3d, renderer3d, controls3d, graph3dInited = false;
 const pos3d = {{}};
@@ -1533,17 +1591,66 @@ function init3D() {{
   const starMat = new THREE.PointsMaterial({{ color: 0x334466, size: 0.5 }});
   scene3d.add(new THREE.Points(starGeo, starMat));
 
+  setup3DInteraction();
   animate3D();
 }}
 
 function animate3D() {{
   requestAnimationFrame(animate3D);
   controls3d.update();
-
-  // ゆっくり回転
   scene3d.rotation.y += 0.001;
-
   renderer3d.render(scene3d, camera3d);
+}}
+
+function setup3DInteraction() {{
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let hovered = null;
+  const tip = document.createElement('div');
+  tip.style.cssText = `position:fixed;display:none;background:rgba(10,10,26,0.92);
+    color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;z-index:1000;
+    pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,0.4);
+    font-family:-apple-system,sans-serif;max-width:280px;backdrop-filter:blur(8px)`;
+  document.body.appendChild(tip);
+
+  renderer3d.domElement.addEventListener('mousemove', (e) => {{
+    const rect = renderer3d.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera3d);
+    const meshes = scene3d.children.filter(c => c.isMesh);
+    const intersects = raycaster.intersectObjects(meshes);
+
+    if (intersects.length > 0 && intersects[0].object.userData && intersects[0].object.userData.label) {{
+      const n = intersects[0].object.userData;
+      hovered = n;
+      const sc = n.score >= 80 ? '#34c759' : n.score >= 60 ? '#ff9500' : '#ff3b30';
+      tip.innerHTML = `
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">${{n.label}}</div>
+        <div style="color:#a0aec0;font-size:12px;margin-bottom:6px">${{n.file}}:${{n.line}}</div>
+        <div style="display:grid;grid-template-columns:auto auto;gap:2px 12px;font-size:12px">
+          <span style="color:#a0aec0">スコア</span><span style="color:${{sc}};font-weight:700">${{n.score}}点</span>
+          <span style="color:#a0aec0">行数</span><span>${{n.lines}}</span>
+          <span style="color:#a0aec0">複雑さ</span><span>${{n.complexity}}</span>
+          <span style="color:#a0aec0">認知的</span><span>${{n.cognitive}}</span>
+          <span style="color:#a0aec0">影響</span><span>${{n.impact}}関数</span>
+        </div>
+      `;
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top = (e.clientY - 10) + 'px';
+      renderer3d.domElement.style.cursor = 'pointer';
+    }} else {{
+      hovered = null;
+      tip.style.display = 'none';
+      renderer3d.domElement.style.cursor = 'grab';
+    }}
+  }});
+
+  renderer3d.domElement.addEventListener('click', (e) => {{
+    if (hovered) showNodePopup(hovered, e.clientX, e.clientY);
+  }});
 }}
 </script>
 </body>
