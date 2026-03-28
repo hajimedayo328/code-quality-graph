@@ -5,6 +5,10 @@ Pythonコードをグラフ理論で分析し、素人でも「どこがヤバ�
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+## Live Demo
+
+**[デモレポートを見る](https://hajimedayo328.github.io/code-quality-graph/)** (このツール自身を分析した結果)
+
 ## 特徴
 
 既存ツール（pylint, flake8）にない**グラフ理論ベースの分析**を提供:
