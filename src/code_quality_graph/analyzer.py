@@ -1264,8 +1264,25 @@ tr:hover td {{ background: #f9f9fb; }}
 
     <!-- 3Dマップタブ -->
     <div id="tab-graph3d" class="tab-content">
-      <div class="section-desc">マウスでドラッグして回転、スクロールでズーム。ノードの大きさ = 重要度、色 = モジュール</div>
-      <div id="graph3d-container" style="width:100%;height:600px;border-radius:12px;background:#0a0a1a;position:relative"></div>
+      <div class="section-desc">クリックで接続ハイライト、ダブルクリックで解除。色 = 品質スコア（緑→黄→赤）</div>
+      <div style="position:relative">
+        <div id="graph3d-container" style="width:100%;height:700px;border-radius:12px;background:#0a0a1a;position:relative;overflow:hidden"></div>
+        <div id="legend3d" style="position:absolute;top:16px;left:16px;background:rgba(10,10,26,0.88);backdrop-filter:blur(8px);border-radius:12px;padding:16px 18px;color:#fff;font-size:12px;pointer-events:none;z-index:10;line-height:1.6">
+          <div style="font-weight:700;font-size:13px;margin-bottom:8px;letter-spacing:0.5px">凡例</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#34c759"></span> 80点以上（健康）</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff9500"></span> 60〜79点（注意）</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff3b30"></span> 59点以下（危険）</div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.12)">
+            <div style="margin-bottom:3px">● 大きい = 多くから呼ばれる</div>
+            <div style="margin-bottom:3px">━ 線 = 呼び出し関係</div>
+            <div>💡 発光 = 要改善</div>
+          </div>
+        </div>
+        <div style="position:absolute;top:16px;right:16px;display:flex;gap:6px;z-index:10">
+          <button onclick="reset3DView()" style="background:rgba(255,255,255,0.9);border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">リセット</button>
+          <button onclick="toggle3DForce()" id="forceBtn3d" style="background:rgba(255,255,255,0.9);border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">物理: ON</button>
+        </div>
+      </div>
     </div>
 
     <!-- 変更影響タブ -->
@@ -1481,95 +1498,175 @@ function hideNodePopup() {{
 }}
 document.addEventListener('keydown', (e) => {{ if (e.key === 'Escape') hideNodePopup(); }});
 
-// ========== 3Dグラフ ==========
+// ========== 3Dグラフ（フォースレイアウト + スコア色 + ハイライト） ==========
 let scene3d, camera3d, renderer3d, controls3d, graph3dInited = false;
-const pos3d = {{}};
-const COLORS3D = [0x007aff, 0x34c759, 0xff9500, 0xaf52de, 0x5ac8fa,
-                   0xffcc00, 0xff2d55, 0x64d2ff, 0x30d158, 0xff6b6b];
-const modColor3d = {{}};
-let ci3d = 0;
-nodes.forEach(n => {{ if (!(n.module in modColor3d)) modColor3d[n.module] = COLORS3D[ci3d++ % COLORS3D.length]; }});
+let forceEnabled = true, selectedNodeId = null, time3d = 0;
+const pos3d = {{}}, nodeMeshes3d = [], edgeLines3d = [], nodeSprites3d = [], glowSprites3d = [];
+
+// スコア → 色（緑→黄→赤のスムーズグラデーション）
+function scoreToColor(s) {{
+  if (s >= 80) return new THREE.Color(0.20, 0.78, 0.35);
+  if (s >= 60) {{
+    const t = (s - 60) / 20;
+    const c = new THREE.Color();
+    c.r = 1.0 - t * 0.0;  c.g = 0.35 + t * 0.23;  c.b = 0.19 + t * 0.0;
+    return c;
+  }}
+  const t = Math.max(0, s) / 60;
+  const c = new THREE.Color();
+  c.r = 1.0;  c.g = t * 0.35;  c.b = t * 0.19;
+  return c;
+}}
+
+// 発光テクスチャ生成
+function makeGlowTexture() {{
+  const cv = document.createElement('canvas');
+  cv.width = 128; cv.height = 128;
+  const cx = cv.getContext('2d');
+  const g = cx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,80,60,0.6)');
+  g.addColorStop(0.4, 'rgba(255,60,48,0.2)');
+  g.addColorStop(1, 'rgba(255,60,48,0)');
+  cx.fillStyle = g;
+  cx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(cv);
+}}
+
+// 隣接関係ビルド
+const adj3d = {{}};
+nodes.forEach(n => {{ adj3d[n.id] = new Set(); }});
+edges.forEach(e => {{
+  if (adj3d[e.source]) adj3d[e.source].add(e.target);
+  if (adj3d[e.target]) adj3d[e.target].add(e.source);
+}});
+
+// 最重要ノード（PageRank最大）
+const heroNode = nodes.reduce((a, b) => (b.pagerank || 0) > (a.pagerank || 0) ? b : a, nodes[0]);
 
 function init3D() {{
   if (graph3dInited) return;
   graph3dInited = true;
   const container = document.getElementById('graph3d-container');
-  const w = container.clientWidth, h = 600;
+  const w = container.clientWidth, h = 700;
 
   scene3d = new THREE.Scene();
-  scene3d.background = new THREE.Color(0x0a0a1a);
-  scene3d.fog = new THREE.Fog(0x0a0a1a, 300, 800);
+  scene3d.background = new THREE.Color(0x08081a);
 
-  camera3d = new THREE.PerspectiveCamera(60, w/h, 1, 2000);
-  camera3d.position.set(0, 0, 250);
+  camera3d = new THREE.PerspectiveCamera(55, w / h, 1, 2000);
+  camera3d.position.set(0, 40, 280);
 
-  renderer3d = new THREE.WebGLRenderer({{ antialias: true }});
+  renderer3d = new THREE.WebGLRenderer({{ antialias: true, alpha: false }});
   renderer3d.setSize(w, h);
-  renderer3d.setPixelRatio(window.devicePixelRatio);
+  renderer3d.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   container.appendChild(renderer3d.domElement);
 
   controls3d = new THREE.OrbitControls(camera3d, renderer3d.domElement);
   controls3d.enableDamping = true;
-  controls3d.dampingFactor = 0.05;
+  controls3d.dampingFactor = 0.08;
+  controls3d.minDistance = 40;
+  controls3d.maxDistance = 600;
 
   // ライト
-  const ambient = new THREE.AmbientLight(0x404060, 0.6);
-  scene3d.add(ambient);
-  const point = new THREE.PointLight(0xffffff, 1.2, 500);
-  point.position.set(100, 100, 100);
-  scene3d.add(point);
+  scene3d.add(new THREE.AmbientLight(0x303050, 0.5));
+  const pt1 = new THREE.PointLight(0xaaccff, 1.0, 600);
+  pt1.position.set(120, 120, 120);
+  scene3d.add(pt1);
+  const pt2 = new THREE.PointLight(0xffaa66, 0.4, 400);
+  pt2.position.set(-80, -60, -80);
+  scene3d.add(pt2);
 
-  // ノード配置（球面状に初期配置）
+  const glowTex = makeGlowTexture();
+
+  // ノード配置（モジュール別クラスタ初期配置）
+  const modAngles = {{}};
+  let modIdx = 0;
+  nodes.forEach(n => {{
+    if (!(n.module in modAngles)) {{
+      modAngles[n.module] = (modIdx / Object.keys(modAngles).length || 1) * Math.PI * 2 || modIdx * 1.2;
+      modIdx++;
+    }}
+  }});
+  // 再計算（全モジュール数確定後）
+  const modKeys = Object.keys(modAngles);
+  modKeys.forEach((k, i) => {{ modAngles[k] = (i / modKeys.length) * Math.PI * 2; }});
+
   nodes.forEach((n, i) => {{
-    const phi = Math.acos(-1 + (2*i) / nodes.length);
-    const theta = Math.sqrt(nodes.length * Math.PI) * phi;
-    const r = 80 + Math.random() * 40;
+    const baseAngle = modAngles[n.module] || 0;
+    const spread = 40 + Math.random() * 30;
+    const offAngle = baseAngle + (Math.random() - 0.5) * 1.2;
+    const yOff = (Math.random() - 0.5) * 60;
     pos3d[n.id] = {{
-      x: r * Math.cos(theta) * Math.sin(phi),
-      y: r * Math.sin(theta) * Math.sin(phi),
-      z: r * Math.cos(phi),
+      x: Math.cos(offAngle) * spread,
+      y: yOff,
+      z: Math.sin(offAngle) * spread,
       vx: 0, vy: 0, vz: 0
     }};
 
-    const size = Math.max(1.5, 1.5 + n.in_degree * 0.8 + n.pagerank * 80);
-    const geo = new THREE.SphereGeometry(size, 16, 16);
-    const color = n.is_isolated ? 0xff3b30 : modColor3d[n.module] || 0x007aff;
+    const size = Math.max(2, 2 + (n.in_degree || 0) * 0.7 + (n.pagerank || 0) * 60);
+    const color = scoreToColor(n.score);
+    const geo = new THREE.SphereGeometry(size, 20, 20);
+    const isDanger = n.score < 60;
     const mat = new THREE.MeshPhongMaterial({{
       color: color,
       emissive: color,
-      emissiveIntensity: n.score < 50 ? 0.5 : 0.15,
-      shininess: 80,
+      emissiveIntensity: isDanger ? 0.4 : 0.12,
+      shininess: 100,
       transparent: true,
-      opacity: n.score < 50 ? 1.0 : 0.75,
+      opacity: 0.9,
     }});
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(pos3d[n.id].x, pos3d[n.id].y, pos3d[n.id].z);
-    mesh.userData = n;
+    mesh.userData = {{ ...n, _size: size, _baseEmissive: isDanger ? 0.4 : 0.12 }};
     scene3d.add(mesh);
+    nodeMeshes3d.push(mesh);
 
-    // テキストラベル（スプライト）
-    if (size > 2) {{
-      const canvas2 = document.createElement('canvas');
-      const ctx2 = canvas2.getContext('2d');
-      canvas2.width = 256;
-      canvas2.height = 64;
-      ctx2.fillStyle = 'rgba(0,0,0,0)';
-      ctx2.fillRect(0, 0, 256, 64);
-      ctx2.font = '24px -apple-system, sans-serif';
-      ctx2.fillStyle = '#ffffff';
-      ctx2.textAlign = 'center';
-      ctx2.fillText(n.label, 128, 40);
-      const tex = new THREE.CanvasTexture(canvas2);
-      const spriteMat = new THREE.SpriteMaterial({{ map: tex, transparent: true, opacity: 0.85 }});
-      const sprite = new THREE.Sprite(spriteMat);
-      sprite.position.set(pos3d[n.id].x, pos3d[n.id].y + size + 3, pos3d[n.id].z);
-      sprite.scale.set(size * 4, size * 1, 1);
+    // 発光スプライト（危険ノード）
+    if (isDanger) {{
+      const gMat = new THREE.SpriteMaterial({{ map: glowTex, transparent: true, opacity: 0.7, depthWrite: false }});
+      const gSprite = new THREE.Sprite(gMat);
+      gSprite.scale.set(size * 5, size * 5, 1);
+      gSprite.position.copy(mesh.position);
+      gSprite.userData = {{ nodeId: n.id }};
+      scene3d.add(gSprite);
+      glowSprites3d.push(gSprite);
+    }}
+
+    // テキストラベル
+    if (size > 2.5 || n.id === heroNode.id) {{
+      const cv = document.createElement('canvas');
+      const cx = cv.getContext('2d');
+      cv.width = 512; cv.height = 64;
+      cx.clearRect(0, 0, 512, 64);
+      cx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+      cx.fillStyle = n.id === heroNode.id ? '#5ac8fa' : '#ffffff';
+      cx.textAlign = 'center';
+      const label = n.id === heroNode.id ? '⭐ ' + n.label : n.label;
+      cx.fillText(label, 256, 40);
+      const tex = new THREE.CanvasTexture(cv);
+      const sMat = new THREE.SpriteMaterial({{ map: tex, transparent: true, opacity: 0.9, depthTest: false }});
+      const sprite = new THREE.Sprite(sMat);
+      sprite.position.set(pos3d[n.id].x, pos3d[n.id].y + size + 4, pos3d[n.id].z);
+      sprite.scale.set(size * 5, size * 0.8, 1);
+      sprite.userData = {{ nodeId: n.id }};
       scene3d.add(sprite);
+      nodeSprites3d.push(sprite);
     }}
   }});
 
+  // ヒーローリング
+  const ringGeo = new THREE.RingGeometry(
+    nodeMeshes3d.find(m => m.userData.id === heroNode.id)?.userData._size * 1.6 || 5,
+    nodeMeshes3d.find(m => m.userData.id === heroNode.id)?.userData._size * 2.0 || 6,
+    32
+  );
+  const ringMat = new THREE.MeshBasicMaterial({{ color: 0x5ac8fa, transparent: true, opacity: 0.5, side: THREE.DoubleSide }});
+  const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+  const hp = pos3d[heroNode.id];
+  ringMesh.position.set(hp.x, hp.y, hp.z);
+  ringMesh.userData = {{ _isRing: true, nodeId: heroNode.id }};
+  scene3d.add(ringMesh);
+
   // エッジ
-  const edgeMat = new THREE.LineBasicMaterial({{ color: 0x334455, transparent: true, opacity: 0.25 }});
   edges.forEach(e => {{
     const pa = pos3d[e.source], pb = pos3d[e.target];
     if (!pa || !pb) return;
@@ -1577,29 +1674,171 @@ function init3D() {{
       new THREE.Vector3(pa.x, pa.y, pa.z),
       new THREE.Vector3(pb.x, pb.y, pb.z),
     ]);
-    const line = new THREE.Line(geo, edgeMat);
+    const mat = new THREE.LineBasicMaterial({{ color: 0x3a4a6a, transparent: true, opacity: 0.3 }});
+    const line = new THREE.Line(geo, mat);
+    line.userData = {{ source: e.source, target: e.target }};
     scene3d.add(line);
+    edgeLines3d.push(line);
   }});
 
   // パーティクル背景
   const starGeo = new THREE.BufferGeometry();
-  const starVerts = [];
-  for (let i = 0; i < 500; i++) {{
-    starVerts.push((Math.random()-0.5)*600, (Math.random()-0.5)*600, (Math.random()-0.5)*600);
-  }}
-  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVerts, 3));
-  const starMat = new THREE.PointsMaterial({{ color: 0x334466, size: 0.5 }});
-  scene3d.add(new THREE.Points(starGeo, starMat));
+  const sv = [];
+  for (let i = 0; i < 400; i++) sv.push((Math.random()-0.5)*800, (Math.random()-0.5)*800, (Math.random()-0.5)*800);
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(sv, 3));
+  scene3d.add(new THREE.Points(starGeo, new THREE.PointsMaterial({{ color: 0x223355, size: 0.6 }})));
 
   setup3DInteraction();
   animate3D();
 }}
 
+// フォースシミュレーション
+function stepForce() {{
+  const alpha = 0.3, repulse = 800, spring = 0.005, damp = 0.85, center = 0.01;
+  const ids = Object.keys(pos3d);
+  // 斥力
+  for (let i = 0; i < ids.length; i++) {{
+    for (let j = i + 1; j < ids.length; j++) {{
+      const a = pos3d[ids[i]], b = pos3d[ids[j]];
+      let dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+      let d2 = dx*dx + dy*dy + dz*dz;
+      if (d2 < 1) d2 = 1;
+      const f = repulse / d2;
+      const dist = Math.sqrt(d2);
+      dx /= dist; dy /= dist; dz /= dist;
+      a.vx += dx * f * alpha; a.vy += dy * f * alpha; a.vz += dz * f * alpha;
+      b.vx -= dx * f * alpha; b.vy -= dy * f * alpha; b.vz -= dz * f * alpha;
+    }}
+  }}
+  // 引力（エッジ）
+  edges.forEach(e => {{
+    const a = pos3d[e.source], b = pos3d[e.target];
+    if (!a || !b) return;
+    const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+    const f = spring * alpha;
+    a.vx += dx * f; a.vy += dy * f; a.vz += dz * f;
+    b.vx -= dx * f; b.vy -= dy * f; b.vz -= dz * f;
+  }});
+  // 中心引力 + ダンピング
+  ids.forEach(id => {{
+    const p = pos3d[id];
+    p.vx -= p.x * center; p.vy -= p.y * center; p.vz -= p.z * center;
+    p.vx *= damp; p.vy *= damp; p.vz *= damp;
+    p.x += p.vx; p.y += p.vy; p.z += p.vz;
+  }});
+}}
+
+function syncPositions() {{
+  nodeMeshes3d.forEach(m => {{
+    const p = pos3d[m.userData.id];
+    if (p) m.position.set(p.x, p.y, p.z);
+  }});
+  nodeSprites3d.forEach(s => {{
+    const p = pos3d[s.userData.nodeId];
+    const m = nodeMeshes3d.find(mm => mm.userData.id === s.userData.nodeId);
+    if (p && m) s.position.set(p.x, p.y + m.userData._size + 4, p.z);
+  }});
+  glowSprites3d.forEach(g => {{
+    const p = pos3d[g.userData.nodeId];
+    if (p) g.position.set(p.x, p.y, p.z);
+  }});
+  // リング
+  scene3d.children.forEach(c => {{
+    if (c.userData && c.userData._isRing) {{
+      const p = pos3d[c.userData.nodeId];
+      if (p) c.position.set(p.x, p.y, p.z);
+    }}
+  }});
+  // エッジ更新
+  edgeLines3d.forEach(line => {{
+    const pa = pos3d[line.userData.source], pb = pos3d[line.userData.target];
+    if (!pa || !pb) return;
+    const positions = line.geometry.attributes.position;
+    positions.setXYZ(0, pa.x, pa.y, pa.z);
+    positions.setXYZ(1, pb.x, pb.y, pb.z);
+    positions.needsUpdate = true;
+  }});
+}}
+
 function animate3D() {{
   requestAnimationFrame(animate3D);
+  time3d += 0.016;
+  if (forceEnabled) {{ stepForce(); syncPositions(); }}
+
+  // 危険ノード発光アニメーション
+  const pulse = 0.15 * Math.sin(time3d * 3) + 0.15;
+  nodeMeshes3d.forEach(m => {{
+    if (m.userData.score < 60) {{
+      m.material.emissiveIntensity = m.userData._baseEmissive + pulse;
+    }}
+  }});
+  glowSprites3d.forEach(g => {{
+    g.material.opacity = 0.4 + 0.3 * Math.sin(time3d * 2.5);
+  }});
+
+  // リング回転
+  scene3d.children.forEach(c => {{
+    if (c.userData && c.userData._isRing) c.rotation.z += 0.01;
+  }});
+
   controls3d.update();
-  scene3d.rotation.y += 0.001;
   renderer3d.render(scene3d, camera3d);
+}}
+
+// ハイライトロジック
+function highlightNode(nodeId) {{
+  selectedNodeId = nodeId;
+  const connected = adj3d[nodeId] || new Set();
+  nodeMeshes3d.forEach(m => {{
+    const id = m.userData.id;
+    if (id === nodeId) {{
+      m.material.opacity = 1.0;
+      m.material.emissiveIntensity = 0.6;
+    }} else if (connected.has(id)) {{
+      m.material.opacity = 0.85;
+      m.material.emissiveIntensity = 0.3;
+    }} else {{
+      m.material.opacity = 0.08;
+      m.material.emissiveIntensity = 0.02;
+    }}
+  }});
+  edgeLines3d.forEach(line => {{
+    const s = line.userData.source, t = line.userData.target;
+    if (s === nodeId || t === nodeId) {{
+      line.material.color.set(0x5ac8fa);
+      line.material.opacity = 0.8;
+    }} else {{
+      line.material.opacity = 0.03;
+    }}
+  }});
+  nodeSprites3d.forEach(s => {{
+    const id = s.userData.nodeId;
+    s.material.opacity = (id === nodeId || connected.has(id)) ? 0.95 : 0.05;
+  }});
+}}
+
+function clearHighlight() {{
+  selectedNodeId = null;
+  nodeMeshes3d.forEach(m => {{
+    m.material.opacity = 0.9;
+    m.material.emissiveIntensity = m.userData._baseEmissive;
+  }});
+  edgeLines3d.forEach(line => {{
+    line.material.color.set(0x3a4a6a);
+    line.material.opacity = 0.3;
+  }});
+  nodeSprites3d.forEach(s => {{ s.material.opacity = 0.9; }});
+}}
+
+function reset3DView() {{
+  clearHighlight();
+  camera3d.position.set(0, 40, 280);
+  controls3d.target.set(0, 0, 0);
+}}
+
+function toggle3DForce() {{
+  forceEnabled = !forceEnabled;
+  document.getElementById('forceBtn3d').textContent = '物理: ' + (forceEnabled ? 'ON' : 'OFF');
 }}
 
 function setup3DInteraction() {{
@@ -1607,39 +1846,43 @@ function setup3DInteraction() {{
   const mouse = new THREE.Vector2();
   let hovered = null;
   const tip = document.createElement('div');
-  tip.style.cssText = `position:fixed;display:none;background:rgba(10,10,26,0.92);
-    color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;z-index:1000;
-    pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,0.4);
-    font-family:-apple-system,sans-serif;max-width:280px;backdrop-filter:blur(8px)`;
+  tip.style.cssText = `position:fixed;display:none;background:rgba(8,8,26,0.94);
+    color:#fff;padding:14px 18px;border-radius:12px;font-size:13px;z-index:1000;
+    pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    font-family:-apple-system,sans-serif;max-width:300px;backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,0.08)`;
   document.body.appendChild(tip);
 
   renderer3d.domElement.addEventListener('mousemove', (e) => {{
     const rect = renderer3d.domElement.getBoundingClientRect();
     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
     raycaster.setFromCamera(mouse, camera3d);
-    const meshes = scene3d.children.filter(c => c.isMesh);
-    const intersects = raycaster.intersectObjects(meshes);
+    const intersects = raycaster.intersectObjects(nodeMeshes3d);
 
-    if (intersects.length > 0 && intersects[0].object.userData && intersects[0].object.userData.label) {{
+    if (intersects.length > 0 && intersects[0].object.userData.label) {{
       const n = intersects[0].object.userData;
       hovered = n;
       const sc = n.score >= 80 ? '#34c759' : n.score >= 60 ? '#ff9500' : '#ff3b30';
+      const bar = Math.max(4, Math.min(100, n.score));
       tip.innerHTML = `
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">${{n.label}}</div>
-        <div style="color:#a0aec0;font-size:12px;margin-bottom:6px">${{n.file}}:${{n.line}}</div>
-        <div style="display:grid;grid-template-columns:auto auto;gap:2px 12px;font-size:12px">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px">${{n.label}}</div>
+        <div style="color:#a0aec0;font-size:11px;margin-bottom:8px">${{n.file}}:${{n.line}}</div>
+        <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;margin-bottom:10px">
+          <div style="width:${{bar}}%;height:100%;border-radius:6px;background:${{sc}}"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:12px">
           <span style="color:#a0aec0">スコア</span><span style="color:${{sc}};font-weight:700">${{n.score}}点</span>
-          <span style="color:#a0aec0">行数</span><span>${{n.lines}}</span>
+          <span style="color:#a0aec0">行数</span><span>${{n.lines}}行</span>
           <span style="color:#a0aec0">複雑さ</span><span>${{n.complexity}}</span>
           <span style="color:#a0aec0">認知的</span><span>${{n.cognitive}}</span>
-          <span style="color:#a0aec0">影響</span><span>${{n.impact}}関数</span>
+          <span style="color:#a0aec0">呼ばれる</span><span>${{n.in_degree}}回</span>
+          <span style="color:#a0aec0">影響範囲</span><span>${{n.impact}}関数</span>
         </div>
       `;
       tip.style.display = 'block';
-      tip.style.left = (e.clientX + 14) + 'px';
-      tip.style.top = (e.clientY - 10) + 'px';
+      tip.style.left = (e.clientX + 16) + 'px';
+      tip.style.top = (e.clientY - 12) + 'px';
       renderer3d.domElement.style.cursor = 'pointer';
     }} else {{
       hovered = null;
@@ -1648,8 +1891,15 @@ function setup3DInteraction() {{
     }}
   }});
 
-  renderer3d.domElement.addEventListener('click', (e) => {{
-    if (hovered) showNodePopup(hovered, e.clientX, e.clientY);
+  // シングルクリック → ハイライト
+  renderer3d.domElement.addEventListener('click', () => {{
+    if (hovered) {{
+      highlightNode(hovered.id);
+    }}
+  }});
+  // ダブルクリック → 解除
+  renderer3d.domElement.addEventListener('dblclick', () => {{
+    clearHighlight();
   }});
 }}
 </script>
