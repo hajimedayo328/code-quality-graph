@@ -2,14 +2,16 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Code Quality Graph v2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code Quality Graph - Live Demo</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #f5f5f7; color: #1d1d1f; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.7; }
 
-.header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 32px 40px; }
+.header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 32px 40px; position: relative; }
 .header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
 .header .subtitle { color: #86868b; font-size: 14px; margin-top: 6px; }
+.header .github-link { position: absolute; top: 32px; right: 40px; color: #007aff; text-decoration: none; font-size: 14px; font-weight: 500; }
 .health-badge { display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; margin-left: 12px; vertical-align: middle; }
 .health-badge.healthy { background: #e8f8ef; color: #1b7a3d; }
 .health-badge.caution { background: #fef3cd; color: #856404; }
@@ -17,7 +19,38 @@ body { background: #f5f5f7; color: #1d1d1f; font-family: -apple-system, BlinkMac
 
 .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
 
-.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+.section { background: #fff; border-radius: 16px; padding: 28px 32px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+.section-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.section-desc { font-size: 13px; color: #86868b; margin-bottom: 20px; }
+
+/* 入力セクション */
+.input-section h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.input-section .hint { color: #86868b; font-size: 13px; margin-bottom: 16px; }
+.btn-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.btn { background: #fff; border: 1px solid #d2d2d7; padding: 8px 16px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500; color: #1d1d1f; transition: all 0.15s; }
+.btn:hover { background: #f5f5f7; border-color: #007aff; }
+.btn-primary { background: #007aff; color: #fff; border-color: #007aff; padding: 12px 32px; font-size: 15px; font-weight: 600; }
+.btn-primary:hover { background: #0062cc; }
+.btn-primary:disabled { background: #c7c7cc; border-color: #c7c7cc; cursor: not-allowed; }
+
+textarea#codeInput {
+  width: 100%; min-height: 240px; font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+  font-size: 13px; line-height: 1.5; padding: 14px; border: 1px solid #d2d2d7;
+  border-radius: 12px; resize: vertical; background: #fafafa; color: #1d1d1f;
+}
+textarea#codeInput:focus { outline: none; border-color: #007aff; background: #fff; }
+
+.action-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+
+/* ローディング */
+.loading { text-align: center; padding: 40px 20px; }
+.spinner { display: inline-block; width: 36px; height: 36px; border: 3px solid #e5e5e5; border-top-color: #007aff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading .msg { color: #86868b; font-size: 14px; }
+.loading .progress { color: #007aff; font-size: 13px; margin-top: 6px; }
+
+/* Stats cards */
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
 @media (max-width: 768px) { .cards { grid-template-columns: repeat(2, 1fr); } }
 .card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
 .card .value { font-size: 36px; font-weight: 700; }
@@ -27,32 +60,30 @@ body { background: #f5f5f7; color: #1d1d1f; font-family: -apple-system, BlinkMac
 .card .label { font-size: 14px; font-weight: 600; margin-top: 4px; }
 .card .desc { font-size: 12px; color: #86868b; margin-top: 4px; line-height: 1.4; }
 
-.section { background: #fff; border-radius: 16px; padding: 28px 32px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-.section-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
-.section-desc { font-size: 13px; color: #86868b; margin-bottom: 20px; }
-
-.tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid #e5e5e5; padding-bottom: 0; }
-.tab { padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: 500; color: #86868b; border-bottom: 2px solid transparent; transition: all 0.2s; }
+/* タブ */
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid #e5e5e5; padding-bottom: 0; flex-wrap: wrap; }
+.tab { padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: 500; color: #86868b; border-bottom: 2px solid transparent; transition: all 0.2s; background: none; border-left: none; border-right: none; border-top: none; }
 .tab:hover { color: #1d1d1f; }
 .tab.active { color: #007aff; border-bottom-color: #007aff; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
-.two-col { display: grid; grid-template-columns: 3fr 2fr; gap: 24px; margin-bottom: 24px; }
-@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+/* View toggle (2D/3D) */
+.view-toggle { display: inline-flex; background: #f0f0f0; border-radius: 10px; padding: 2px; margin-bottom: 12px; }
+.view-btn { background: none; border: none; padding: 6px 16px; font-size: 13px; font-weight: 500; color: #86868b; border-radius: 8px; cursor: pointer; }
+.view-btn.active { background: #fff; color: #007aff; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
 
-.graph-box { position: relative; }
-canvas { width: 100%; height: 800px; border-radius: 12px; }
-#graphCanvas { background: #f5f5f7; }
-.controls { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; }
-.controls button { background: #fff; border: 1px solid #d2d2d7; padding: 8px 16px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500; }
-.controls button:hover { background: #f0f0f0; }
+.graph-box { position: relative; background: #fafafa; border-radius: 12px; overflow: hidden; }
+#graph2d-container, #graph3d-container { width: 100%; height: 600px; }
+#graph3d-container { background: #0a0a1a; }
+.graph-info { padding: 8px 12px; font-size: 12px; color: #86868b; }
 
+/* 警告 */
 .warning { padding: 14px 18px; border-radius: 12px; margin-bottom: 8px; }
 .warning.high { background: #fff5f5; border: 1px solid #fed7d7; }
 .warning.medium { background: #fffff0; border: 1px solid #fefcbf; }
 .warning.info { background: #f0f9ff; border: 1px solid #bee3f8; }
-.warning-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.warning-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
 .warning .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
 .warning.high .tag { background: #fed7d7; color: #c53030; }
 .warning.medium .tag { background: #fefcbf; color: #975a16; }
@@ -63,6 +94,7 @@ canvas { width: 100%; height: 800px; border-radius: 12px; }
 .warning .fix::before { content: "直し方: "; font-weight: 600; }
 .warning .loc { font-size: 12px; color: #a0aec0; }
 
+/* テーブル */
 table { width: 100%; border-collapse: collapse; }
 th { text-align: left; font-size: 12px; color: #86868b; font-weight: 600; padding: 10px 14px; border-bottom: 2px solid #e5e5e5; }
 td { padding: 12px 14px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
@@ -73,9 +105,7 @@ tr:hover td { background: #f9f9fb; }
 .score-pill.s-ok { background: #fef3cd; color: #856404; }
 .score-pill.s-bad { background: #fde8e8; color: #c0392b; }
 
-.impact-bar { display: inline-block; height: 8px; border-radius: 4px; background: #007aff; opacity: 0.6; vertical-align: middle; margin-left: 8px; }
-
-.module-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+.module-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f5f5f5; flex-wrap: wrap; }
 .module-row .name { font-weight: 600; min-width: 180px; }
 .module-row .bar { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #007aff, #5ac8fa); opacity: 0.7; }
 .module-row .info { color: #86868b; font-size: 13px; white-space: nowrap; }
@@ -84,1077 +114,656 @@ tr:hover td { background: #f9f9fb; }
 .dup-card .funcs { font-weight: 600; }
 .dup-card .detail { font-size: 13px; color: #6b46c1; margin-top: 4px; }
 
-.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: #86868b; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: #86868b; padding: 8px 0; }
 .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; margin-right: 4px; }
+
+.error-box { background: #fff5f5; border: 1px solid #fed7d7; color: #c53030; padding: 14px 18px; border-radius: 12px; margin-top: 12px; font-size: 14px; }
+.error-box pre { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; margin-top: 8px; white-space: pre-wrap; }
+
+.note-box { background: #f0f9ff; border: 1px solid #bee3f8; color: #2b6cb0; padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; }
+
+.empty { color: #86868b; padding: 20px; text-align: center; }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>Code Quality Graph <span class="health-badge caution">要注意</span></h1>
-  <p class="subtitle">2ファイル / 31関数 / 2121行 / 36本の呼び出し関係</p>
+  <h1>Code Quality Graph <span class="health-badge" id="health-badge" style="display:none"></span></h1>
+  <p class="subtitle">Pythonコードをグラフ理論で分析 - 呼び出し関係・変更影響・重複・セキュリティを可視化</p>
+  <a class="github-link" href="https://github.com/hajimedayo328/code-quality-graph" target="_blank">GitHub →</a>
 </div>
 
 <div class="container">
 
-  <div class="cards">
-    <div class="card">
-      <div class="value orange">79.8</div>
-      <div class="label">品質スコア</div>
-      <div class="desc">100点満点。80以上で健康</div>
+  <!-- 入力セクション -->
+  <div class="section input-section">
+    <h2>コードを入力</h2>
+    <p class="hint">Pythonコードを貼り付けて「解析する」を押すと、ブラウザ内で解析が走ります（サーバ送信なし）</p>
+
+    <div class="btn-row">
+      <button class="btn" onclick="loadSample()">📝 サンプルコードを読み込む</button>
+      <button class="btn" onclick="clearCode()">🗑 クリア</button>
     </div>
-    <div class="card">
-      <div class="value red">14</div>
-      <div class="label">重要な問題</div>
-      <div class="desc">すぐ直した方がいい</div>
-    </div>
-    <div class="card">
-      <div class="value green">0</div>
-      <div class="label">循環依存</div>
-      <div class="desc">ファイルが互いに依存。0が理想</div>
-    </div>
-    <div class="card">
-      <div class="value red">52.3h</div>
-      <div class="label">技術的負債</div>
-      <div class="desc">全部直すのにかかる推定時間</div>
+
+    <textarea id="codeInput" placeholder="# Pythonコードをここに貼り付けてください
+# 「サンプルコードを読み込む」を押すと、デモ用のコードが入ります
+
+def hello():
+    print('Hello, world!')
+"></textarea>
+
+    <div class="action-row">
+      <span class="hint" id="statusText">準備完了</span>
+      <button class="btn-primary" id="analyzeBtn" onclick="analyze()">解析する</button>
     </div>
   </div>
 
-  <div class="cards" style="margin-top:-16px">
-    <div class="card">
-      <div class="value green">0</div>
-      <div class="label">セキュリティ問題</div>
-      <div class="desc">危険なパターンの検出数</div>
-    </div>
-    <div class="card">
-      <div class="value green">2</div>
-      <div class="label">孤立した関数</div>
-      <div class="desc">どこからも使われていない</div>
-    </div>
-    <div class="card">
-      <div class="value">0</div>
-      <div class="label">ホットスポット</div>
-      <div class="desc">変更頻度×複雑度が高い危険箇所</div>
-    </div>
-    <div class="card">
-      <div class="value green">0</div>
-      <div class="label">循環依存</div>
-      <div class="desc">ファイルが互いに依存。0が理想</div>
-    </div>
+  <!-- ローディング -->
+  <div class="section loading" id="loading" style="display:none">
+    <div class="spinner"></div>
+    <p class="msg" id="loadingMsg">処理中...</p>
+    <p class="progress" id="loadingProgress"></p>
   </div>
 
-  <!-- タブ切り替え -->
-  <div class="section">
-    <div class="tabs">
-      <div class="tab active" onclick="switchTab('actions')">次にやること</div>
-      <div class="tab" onclick="switchTab('problems')">問題点</div>
-      <div class="tab" onclick="switchTab('graph')">2Dマップ</div>
-      <div class="tab" onclick="switchTab('graph3d')">3Dマップ</div>
-      <div class="tab" onclick="switchTab('impact')">変更影響</div>
-      <div class="tab" onclick="switchTab('duplicates')">重複コード</div>
-      <div class="tab" onclick="switchTab('files')">ファイル</div>
-      <div class="tab" onclick="switchTab('hotspots')">ホットスポット</div>
-      <div class="tab" onclick="switchTab('functions')">全関数</div>
-    </div>
+  <!-- エラー -->
+  <div id="errorSection" style="display:none"></div>
 
-    <!-- 次にやることタブ -->
-    <div id="tab-actions" class="tab-content active">
-      <div class="section-desc">スコアが低い関数から順に、具体的な改善手順を表示。上から1つずつやっていこう</div>
-      
-    <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-                border-radius:16px;padding:28px 32px;color:#fff;margin-bottom:24px">
-      <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:0.8">
-        今日やるべき1つ
+  <!-- 結果 -->
+  <div id="results" style="display:none">
+
+    <div class="cards">
+      <div class="card">
+        <div class="value" id="stat-avg">-</div>
+        <div class="label">品質スコア</div>
+        <div class="desc">100点満点。80以上で健康</div>
       </div>
-      <div style="font-size:24px;font-weight:700;margin:8px 0">
-        calc_quality_scores を改善する
+      <div class="card">
+        <div class="value" id="stat-high">-</div>
+        <div class="label">重要な問題</div>
+        <div class="desc">すぐ直した方がいい</div>
       </div>
-      <div style="font-size:14px;opacity:0.9">
-        analyzer.py:557 / スコア 20点 / 推定 約69分
+      <div class="card">
+        <div class="value" id="stat-cycles">-</div>
+        <div class="label">循環依存</div>
+        <div class="desc">0が理想</div>
       </div>
-    </div>
-    
-
-        <div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:12px;
-                    padding:20px 24px;margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <div>
-              <span style="font-weight:700;font-size:16px">calc_quality_scores</span>
-              <span style="color:#a0aec0;font-size:13px;margin-left:8px">analyzer.py:557</span>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <span style="color:#c53030;font-size:12px;font-weight:600">優先度: 高</span>
-              <span style="background:#c53030;color:#fff;padding:2px 10px;border-radius:8px;
-                           font-size:12px;font-weight:600">スコア 20</span>
-            </div>
-          </div>
-          
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  1
-                </span>
-                <span style="font-weight:600;font-size:15px">関数を分割する</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約6分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">この関数は151行。以下の手順で分割しよう:</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">関数内のコメントや空行を探す。それが処理の区切り</li><li style="margin:4px 0;color:#4a5568">区切りごとに新しい関数名を考える（例: _validate_input, _process_data）</li><li style="margin:4px 0;color:#4a5568">区切り部分を新しい関数にコピーし、元の場所は関数呼び出しに置き換える</li><li style="margin:4px 0;color:#4a5568">動作が変わっていないことを確認する（テストがあれば実行）</li></ol>
-            </div>
-            
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  2
-                </span>
-                <span style="font-weight:600;font-size:15px">分岐を減らす</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約63分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">複雑度29 / 認知的複雑度53。読みにくい</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">「早期リターン」を使う: 条件を満たさない場合にすぐreturnする</li><li style="margin:4px 0;color:#4a5568">例: if not x: return None を関数の最初に置く</li><li style="margin:4px 0;color:#4a5568">深いネスト（if の中の if の中の for...）を平坦にする</li><li style="margin:4px 0;color:#4a5568">条件が複雑な場合、条件を変数に入れる（is_valid = x > 0 and y < 10）</li></ol>
-            </div>
-            
-        </div>
-        
-
-        <div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:12px;
-                    padding:20px 24px;margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <div>
-              <span style="font-weight:700;font-size:16px">generate_action_guide</span>
-              <span style="color:#a0aec0;font-size:13px;margin-left:8px">analyzer.py:730</span>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <span style="color:#c53030;font-size:12px;font-weight:600">優先度: 高</span>
-              <span style="background:#c53030;color:#fff;padding:2px 10px;border-radius:8px;
-                           font-size:12px;font-weight:600">スコア 30</span>
-            </div>
-          </div>
-          
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  1
-                </span>
-                <span style="font-weight:600;font-size:15px">関数を分割する</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約4分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">この関数は123行。以下の手順で分割しよう:</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">関数内のコメントや空行を探す。それが処理の区切り</li><li style="margin:4px 0;color:#4a5568">区切りごとに新しい関数名を考える（例: _validate_input, _process_data）</li><li style="margin:4px 0;color:#4a5568">区切り部分を新しい関数にコピーし、元の場所は関数呼び出しに置き換える</li><li style="margin:4px 0;color:#4a5568">動作が変わっていないことを確認する（テストがあれば実行）</li></ol>
-            </div>
-            
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  2
-                </span>
-                <span style="font-weight:600;font-size:15px">分岐を減らす</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約30分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">複雑度18 / 認知的複雑度24。読みにくい</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">「早期リターン」を使う: 条件を満たさない場合にすぐreturnする</li><li style="margin:4px 0;color:#4a5568">例: if not x: return None を関数の最初に置く</li><li style="margin:4px 0;color:#4a5568">深いネスト（if の中の if の中の for...）を平坦にする</li><li style="margin:4px 0;color:#4a5568">条件が複雑な場合、条件を変数に入れる（is_valid = x > 0 and y < 10）</li></ol>
-            </div>
-            
-        </div>
-        
-
-        <div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:12px;
-                    padding:20px 24px;margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <div>
-              <span style="font-weight:700;font-size:16px">calc_graph_metrics</span>
-              <span style="color:#a0aec0;font-size:13px;margin-left:8px">analyzer.py:927</span>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <span style="color:#c53030;font-size:12px;font-weight:600">優先度: 高</span>
-              <span style="background:#c53030;color:#fff;padding:2px 10px;border-radius:8px;
-                           font-size:12px;font-weight:600">スコア 30</span>
-            </div>
-          </div>
-          
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  1
-                </span>
-                <span style="font-weight:600;font-size:15px">長い関数を短くする</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約5分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">この関数は59行。50行以下が目標</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">繰り返し出てくるパターンを探す</li><li style="margin:4px 0;color:#4a5568">if文の中身が長い場合、中身を別関数に切り出す</li><li style="margin:4px 0;color:#4a5568">ループの中身が長い場合も同様</li></ol>
-            </div>
-            
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  2
-                </span>
-                <span style="font-weight:600;font-size:15px">分岐を減らす</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約36分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">複雑度20 / 認知的複雑度32。読みにくい</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">「早期リターン」を使う: 条件を満たさない場合にすぐreturnする</li><li style="margin:4px 0;color:#4a5568">例: if not x: return None を関数の最初に置く</li><li style="margin:4px 0;color:#4a5568">深いネスト（if の中の if の中の for...）を平坦にする</li><li style="margin:4px 0;color:#4a5568">条件が複雑な場合、条件を変数に入れる（is_valid = x > 0 and y < 10）</li></ol>
-            </div>
-            
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  3
-                </span>
-                <span style="font-weight:600;font-size:15px">説明を書く</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約2分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">この関数が何をするか、1行で書こう</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">関数の最初の行に """この関数は〇〇を△△する.""" と書く</li><li style="margin:4px 0;color:#4a5568">引数が3つ以上あるなら、各引数の説明も書く</li></ol>
-            </div>
-            
-        </div>
-        
-
-        <div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:12px;
-                    padding:20px 24px;margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <div>
-              <span style="font-weight:700;font-size:16px">_analyze_file</span>
-              <span style="color:#a0aec0;font-size:13px;margin-left:8px">analyzer.py:89</span>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <span style="color:#c53030;font-size:12px;font-weight:600">優先度: 高</span>
-              <span style="background:#c53030;color:#fff;padding:2px 10px;border-radius:8px;
-                           font-size:12px;font-weight:600">スコア 35</span>
-            </div>
-          </div>
-          
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  1
-                </span>
-                <span style="font-weight:600;font-size:15px">長い関数を短くする</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約9分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">この関数は93行。50行以下が目標</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">繰り返し出てくるパターンを探す</li><li style="margin:4px 0;color:#4a5568">if文の中身が長い場合、中身を別関数に切り出す</li><li style="margin:4px 0;color:#4a5568">ループの中身が長い場合も同様</li></ol>
-            </div>
-            
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  2
-                </span>
-                <span style="font-weight:600;font-size:15px">分岐を減らす</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約54分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">複雑度26 / 認知的複雑度65。読みにくい</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">「早期リターン」を使う: 条件を満たさない場合にすぐreturnする</li><li style="margin:4px 0;color:#4a5568">例: if not x: return None を関数の最初に置く</li><li style="margin:4px 0;color:#4a5568">深いネスト（if の中の if の中の for...）を平坦にする</li><li style="margin:4px 0;color:#4a5568">条件が複雑な場合、条件を変数に入れる（is_valid = x > 0 and y < 10）</li></ol>
-            </div>
-            
-        </div>
-        
-
-        <div style="background:#fffff0;border:1px solid #fefcbf;border-radius:12px;
-                    padding:20px 24px;margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <div>
-              <span style="font-weight:700;font-size:16px">calc_impact_scores</span>
-              <span style="color:#a0aec0;font-size:13px;margin-left:8px">analyzer.py:268</span>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <span style="color:#975a16;font-size:12px;font-weight:600">優先度: 中</span>
-              <span style="background:#975a16;color:#fff;padding:2px 10px;border-radius:8px;
-                           font-size:12px;font-weight:600">スコア 50</span>
-            </div>
-          </div>
-          
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  1
-                </span>
-                <span style="font-weight:600;font-size:15px">長い関数を短くする</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約5分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">この関数は56行。50行以下が目標</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">繰り返し出てくるパターンを探す</li><li style="margin:4px 0;color:#4a5568">if文の中身が長い場合、中身を別関数に切り出す</li><li style="margin:4px 0;color:#4a5568">ループの中身が長い場合も同様</li></ol>
-            </div>
-            
-            <div style="margin-bottom:16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="background:#667eea;color:#fff;width:24px;height:24px;border-radius:50%;
-                             display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
-                  2
-                </span>
-                <span style="font-weight:600;font-size:15px">分岐を減らす</span>
-                <span style="color:#a0aec0;font-size:12px;margin-left:auto">約15分</span>
-              </div>
-              <div style="margin-left:32px;font-size:13px;color:#718096">複雑度13 / 認知的複雑度30。読みにくい</div>
-              <ol style="margin-left:48px;margin-top:6px;font-size:13px"><li style="margin:4px 0;color:#4a5568">「早期リターン」を使う: 条件を満たさない場合にすぐreturnする</li><li style="margin:4px 0;color:#4a5568">例: if not x: return None を関数の最初に置く</li><li style="margin:4px 0;color:#4a5568">深いネスト（if の中の if の中の for...）を平坦にする</li><li style="margin:4px 0;color:#4a5568">条件が複雑な場合、条件を変数に入れる（is_valid = x > 0 and y < 10）</li></ol>
-            </div>
-            
-        </div>
-        
-    </div>
-
-    <!-- 問題点タブ -->
-    <div id="tab-problems" class="tab-content">
-      <div class="section-desc">上から順に重要。「直し方」も参考にしてください</div>
-      <div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">calc_quality_scores</span></div><div class="msg">151行もある。50行以下に分割しよう</div><div class="loc">analyzer.py:557</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">calc_quality_scores</span></div><div class="msg">複雑度29。分岐が多すぎて読めない</div><div class="loc">analyzer.py:557</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">calc_quality_scores</span></div><div class="msg">認知的複雑度53。読むのが非常に困難</div><div class="loc">analyzer.py:557</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">generate_action_guide</span></div><div class="msg">123行もある。50行以下に分割しよう</div><div class="loc">analyzer.py:730</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">generate_action_guide</span></div><div class="msg">複雑度18。分岐が多すぎて読めない</div><div class="loc">analyzer.py:730</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">generate_action_guide</span></div><div class="msg">認知的複雑度24。読みにくい</div><div class="loc">analyzer.py:730</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">calc_graph_metrics</span></div><div class="msg">59行。長めなので分割を検討</div><div class="loc">analyzer.py:927</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">calc_graph_metrics</span></div><div class="msg">複雑度20。分岐が多すぎて読めない</div><div class="loc">analyzer.py:927</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">calc_graph_metrics</span></div><div class="msg">説明コメントがない</div><div class="loc">analyzer.py:927</div><div class="fix">関数の先頭に """この関数は何をするか""" を1行書こう</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">calc_graph_metrics</span></div><div class="msg">認知的複雑度32。読むのが非常に困難</div><div class="loc">analyzer.py:927</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">_analyze_file</span></div><div class="msg">93行。長めなので分割を検討</div><div class="loc">analyzer.py:89</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">_analyze_file</span></div><div class="msg">複雑度26。分岐が多すぎて読めない</div><div class="loc">analyzer.py:89</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">_analyze_file</span></div><div class="msg">認知的複雑度65。読むのが非常に困難</div><div class="loc">analyzer.py:89</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning high"><div class="warning-header"><span class="tag">HIGH</span><span class="target">analyzer.py</span></div><div class="msg">2121行。ファイルが大きすぎる</div><div class="fix">責任ごとにファイルを分割しよう。1ファイル200-400行が理想</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_detect_cycles_in_modules</span></div><div class="msg">複雑度12。やや複雑</div><div class="loc">analyzer.py:239</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_detect_cycles_in_modules</span></div><div class="msg">認知的複雑度33。読むのが非常に困難</div><div class="loc">analyzer.py:239</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">calc_impact_scores</span></div><div class="msg">56行。長めなので分割を検討</div><div class="loc">analyzer.py:268</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">calc_impact_scores</span></div><div class="msg">複雑度13。やや複雑</div><div class="loc">analyzer.py:268</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">calc_impact_scores</span></div><div class="msg">認知的複雑度30。読むのが非常に困難</div><div class="loc">analyzer.py:268</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_calc_cognitive_complexity</span></div><div class="msg">複雑度12。やや複雑</div><div class="loc">analyzer.py:351</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_calc_cognitive_complexity</span></div><div class="msg">認知的複雑度33。読むのが非常に困難</div><div class="loc">analyzer.py:351</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">generate_report</span></div><div class="msg">71行。長めなので分割を検討</div><div class="loc">analyzer.py:990</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">generate_report</span></div><div class="msg">複雑度9。やや複雑</div><div class="loc">analyzer.py:990</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">generate_report</span></div><div class="msg">説明コメントがない</div><div class="loc">analyzer.py:990</div><div class="fix">関数の先頭に """この関数は何をするか""" を1行書こう</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">generate_report</span></div><div class="msg">引数が16個。多すぎ</div><div class="loc">analyzer.py:990</div><div class="fix">関連する引数をdataclassや辞書にまとめよう</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_render_html</span></div><div class="msg">845行もある。50行以下に分割しよう</div><div class="loc">analyzer.py:1063</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">_render_html</span></div><div class="msg">引数が20個。多すぎ</div><div class="loc">analyzer.py:1063</div><div class="fix">関連する引数をdataclassや辞書にまとめよう</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">main</span></div><div class="msg">82行。長めなので分割を検討</div><div class="loc">analyzer.py:2036</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">main</span></div><div class="msg">複雑度9。やや複雑</div><div class="loc">analyzer.py:2036</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">main</span></div><div class="msg">説明コメントがない</div><div class="loc">analyzer.py:2036</div><div class="fix">関数の先頭に """この関数は何をするか""" を1行書こう</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">walk</span></div><div class="msg">複雑度12。やや複雑</div><div class="loc">analyzer.py:363</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">walk</span></div><div class="msg">説明コメントがない</div><div class="loc">analyzer.py:363</div><div class="fix">関数の先頭に """この関数は何をするか""" を1行書こう</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">walk</span></div><div class="msg">変更すると5個の関数に影響する</div><div class="loc">analyzer.py:363</div><div class="fix">この関数を変える時は、呼び出し元も確認しよう</div></div>
-<div class="warning medium"><div class="warning-header"><span class="tag">MEDIUM</span><span class="target">walk</span></div><div class="msg">認知的複雑度23。読みにくい</div><div class="loc">analyzer.py:363</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning info"><div class="warning-header"><span class="tag">INFO</span><span class="target">build_import_graph</span></div><div class="msg">認知的複雑度17。読みにくい</div><div class="loc">analyzer.py:220</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning info"><div class="warning-header"><span class="tag">INFO</span><span class="target">analyze_git_history</span></div><div class="msg">51行。長めなので分割を検討</div><div class="loc">analyzer.py:462</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-<div class="warning info"><div class="warning-header"><span class="tag">INFO</span><span class="target">analyze_git_history</span></div><div class="msg">複雑度10。やや複雑</div><div class="loc">analyzer.py:462</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning info"><div class="warning-header"><span class="tag">INFO</span><span class="target">_suggest_fix</span></div><div class="msg">複雑度9。やや複雑</div><div class="loc">analyzer.py:710</div><div class="fix">早期リターン（条件に合わなければすぐreturn）で分岐を減らせる</div></div>
-<div class="warning info"><div class="warning-header"><span class="tag">INFO</span><span class="target">_build_action_guide_html</span></div><div class="msg">68行。長めなので分割を検討</div><div class="loc">analyzer.py:855</div><div class="fix">処理のまとまりごとに関数に切り出そう。1関数50行以下が目安</div></div>
-    </div>
-
-    <!-- 呼び出しマップタブ -->
-    <div id="tab-graph" class="tab-content">
-      <div class="section-desc">丸 = 関数、線 = 呼び出し関係。大きい丸ほど多くの場所から使われている。色はファイルごとのグループ</div>
-      <div class="graph-box">
-        <div class="controls">
-          <button onclick="resetView()">リセット</button>
-          <button onclick="toggleLabels()">名前 ON/OFF</button>
-        </div>
-        <canvas id="graphCanvas"></canvas>
-      </div>
-      <div class="legend">
-        <span><span class="legend-dot" style="background:#ff3b30"></span>孤立（使われてない）</span>
-        <span><span class="legend-dot" style="background:#007aff"></span>通常</span>
-        <span>丸が大きい = よく使われる関数</span>
+      <div class="card">
+        <div class="value" id="stat-debt">-</div>
+        <div class="label">技術的負債</div>
+        <div class="desc">全部直すのにかかる推定時間</div>
       </div>
     </div>
 
-    <!-- 3Dマップタブ -->
-    <div id="tab-graph3d" class="tab-content">
-      <div class="section-desc">クリックで接続ハイライト、ダブルクリックで解除。色 = 品質スコア（緑→黄→赤）</div>
-      <div style="position:relative">
-        <div id="graph3d-container" style="width:100%;height:700px;border-radius:12px;background:#0a0a1a;position:relative;overflow:hidden"></div>
-        <div id="legend3d" style="position:absolute;top:16px;left:16px;background:rgba(10,10,26,0.88);backdrop-filter:blur(8px);border-radius:12px;padding:16px 18px;color:#fff;font-size:12px;pointer-events:none;z-index:10;line-height:1.6">
-          <div style="font-weight:700;font-size:13px;margin-bottom:8px;letter-spacing:0.5px">凡例</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#34c759"></span> 80点以上（健康）</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff9500"></span> 60〜79点（注意）</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff3b30"></span> 59点以下（危険）</div>
-          <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.12)">
-            <div style="margin-bottom:3px">● 大きい = 多くから呼ばれる</div>
-            <div style="margin-bottom:3px">━ 線 = 呼び出し関係</div>
-            <div>💡 発光 = 要改善</div>
-          </div>
-        </div>
-        <div style="position:absolute;top:16px;right:16px;display:flex;gap:6px;z-index:10">
-          <button onclick="reset3DView()" style="background:rgba(255,255,255,0.9);border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">リセット</button>
-          <button onclick="toggle3DForce()" id="forceBtn3d" style="background:rgba(255,255,255,0.9);border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">物理: ON</button>
-        </div>
+    <div class="cards" style="margin-top:-8px">
+      <div class="card">
+        <div class="value" id="stat-sec">-</div>
+        <div class="label">セキュリティ問題</div>
+        <div class="desc">危険なパターンの検出数</div>
+      </div>
+      <div class="card">
+        <div class="value" id="stat-isolated">-</div>
+        <div class="label">孤立した関数</div>
+        <div class="desc">どこからも使われていない</div>
+      </div>
+      <div class="card">
+        <div class="value" id="stat-funcs">-</div>
+        <div class="label">関数数</div>
+        <div class="desc">解析対象の関数</div>
+      </div>
+      <div class="card">
+        <div class="value" id="stat-lines">-</div>
+        <div class="label">総行数</div>
+        <div class="desc">コードの規模</div>
       </div>
     </div>
 
-    <!-- 変更影響タブ -->
-    <div id="tab-impact" class="tab-content">
-      <div class="section-desc">この関数/ファイルを変更したら、どこまで影響するか。バーが長いほど影響が大きい</div>
-      <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">walk</span><div style="height:8px;border-radius:4px;background:#ff3b30;opacity:0.7;width:300px"></div><span style="color:#86868b;font-size:13px">変更すると5個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_calc_cognitive_complexity</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_estimate_tech_debt</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_check_security</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_build_warnings_html</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_build_modules_html</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_build_functions_html</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_build_duplicates_html</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_build_hotspots_html</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_build_impact_html</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_find_parent_class</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_get_call_name</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:180px"></div><span style="color:#86868b;font-size:13px">変更すると3個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_detect_cycles_in_modules</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:120px"></div><span style="color:#86868b;font-size:13px">変更すると2個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_suggest_fix</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:120px"></div><span style="color:#86868b;font-size:13px">変更すると2個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">generate_action_guide</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:120px"></div><span style="color:#86868b;font-size:13px">変更すると2個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_build_action_guide_html</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:120px"></div><span style="color:#86868b;font-size:13px">変更すると2個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_render_html</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:120px"></div><span style="color:#86868b;font-size:13px">変更すると2個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">_analyze_file</span><div style="height:8px;border-radius:4px;background:#ff9500;opacity:0.7;width:120px"></div><span style="color:#86868b;font-size:13px">変更すると2個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">build_call_graph</span><div style="height:8px;border-radius:4px;background:#34c759;opacity:0.7;width:60px"></div><span style="color:#86868b;font-size:13px">変更すると1個の関数に影響</span></div>
-<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5"><span style="min-width:180px;font-weight:600">build_import_graph</span><div style="height:8px;border-radius:4px;background:#34c759;opacity:0.7;width:60px"></div><span style="color:#86868b;font-size:13px">変更すると1個の関数に影響</span></div>
+    <div class="section">
+      <div class="tabs">
+        <button class="tab active" data-tab="problems">問題点</button>
+        <button class="tab" data-tab="graph">呼び出しマップ</button>
+        <button class="tab" data-tab="imports">Import依存</button>
+        <button class="tab" data-tab="impact">変更影響</button>
+        <button class="tab" data-tab="duplicates">重複コード</button>
+        <button class="tab" data-tab="files">ファイル</button>
+        <button class="tab" data-tab="functions">全関数</button>
+      </div>
+
+      <div id="tab-problems" class="tab-content active">
+        <div class="section-desc">上から順に重要。「直し方」も参考にしてください</div>
+        <div id="problems-content"></div>
+      </div>
+
+      <div id="tab-graph" class="tab-content">
+        <div class="section-desc">丸 = 関数、線 = 呼び出し関係。大きい丸ほど多くの場所から使われている</div>
+        <div class="view-toggle">
+          <button class="view-btn active" data-view="2d" onclick="switchView('2d', 'graph')">2D</button>
+          <button class="view-btn" data-view="3d" onclick="switchView('3d', 'graph')">3D</button>
+        </div>
+        <div class="graph-box">
+          <div id="graph2d-container"></div>
+          <div id="graph3d-container" style="display:none"></div>
+        </div>
+        <div class="legend">
+          <span><span class="legend-dot" style="background:#34c759"></span>スコア良好</span>
+          <span><span class="legend-dot" style="background:#ff9500"></span>要注意</span>
+          <span><span class="legend-dot" style="background:#ff3b30"></span>要改善</span>
+          <span><span class="legend-dot" style="background:#8e8e93"></span>孤立</span>
+          <span>丸が大きい = よく呼ばれる</span>
+          <span style="color:#007aff">💡 3Dモードはマウスドラッグで回転</span>
+        </div>
+      </div>
+
+      <div id="tab-imports" class="tab-content">
+        <div class="section-desc">ファイル間のimport関係。循環依存があると危険</div>
+        <div class="view-toggle">
+          <button class="view-btn active" data-view="2d" onclick="switchView('2d', 'imports')">2D</button>
+          <button class="view-btn" data-view="3d" onclick="switchView('3d', 'imports')">3D</button>
+        </div>
+        <div class="graph-box">
+          <div id="imports2d-container" style="height:400px"></div>
+          <div id="imports3d-container" style="height:400px; display:none"></div>
+        </div>
+      </div>
+
+      <div id="tab-impact" class="tab-content">
+        <div class="section-desc">この関数を変更したら、どこまで影響するか。バーが長いほど影響が大きい</div>
+        <div id="impact-content"></div>
+      </div>
+
+      <div id="tab-duplicates" class="tab-content">
+        <div class="section-desc">ほぼ同じコードが複数箇所にある。共通化でメンテが楽になる</div>
+        <div id="duplicates-content"></div>
+      </div>
+
+      <div id="tab-files" class="tab-content">
+        <div class="section-desc">バーの長さ = コード量。長すぎるファイルは分割を検討</div>
+        <div id="files-content"></div>
+      </div>
+
+      <div id="tab-functions" class="tab-content">
+        <div class="section-desc">スコアが低い順。赤い関数ほど改善が必要</div>
+        <div id="functions-content"></div>
+      </div>
     </div>
 
-    <!-- 重複コードタブ -->
-    <div id="tab-duplicates" class="tab-content">
-      <div class="section-desc">ほぼ同じコードが複数箇所にある。共通化すればコード量が減ってメンテが楽になる</div>
-      <p style="color:#86868b">重複コードは見つかりませんでした</p>
-    </div>
-
-    <!-- ファイルタブ -->
-    <div id="tab-files" class="tab-content">
-      <div class="section-desc">バーの長さ = コード量。長すぎるファイルは分割を検討</div>
-      <div class="module-row"><span class="score-pill s-good">80</span><span class="name">analyzer.py</span><div class="bar" style="width: 300px"></div><span class="info">2121行 / 31関数 / 影響0ファイル</span></div>
-<div class="module-row"><span class="score-pill s-good">100</span><span class="name">__init__.py</span><div class="bar" style="width: 4px"></div><span class="info">0行 / 0関数 / 影響0ファイル</span></div>
-    </div>
-
-    <!-- ホットスポットタブ -->
-    <div id="tab-hotspots" class="tab-content">
-      <div class="section-desc">よく変更されるファイル × 複雑なコード = バグが生まれやすい場所。Git履歴から自動検出</div>
-      <p style="color:#86868b">Git履歴がないか、ホットスポットは見つかりませんでした</p>
-    </div>
-
-    <!-- 全関数タブ -->
-    <div id="tab-functions" class="tab-content">
-      <div class="section-desc">スコアが低い順。赤い関数ほど改善が必要</div>
-      <table><tr><th>スコア</th><th>関数名</th><th>場所</th><th>行数</th><th>複雑さ</th><th>認知的</th><th>負債</th><th>タグ</th></tr><tr><td><span class="score-pill s-bad">20</span></td><td><strong>calc_quality_scores</strong></td><td style="color:#86868b">analyzer.py:557</td><td>151</td><td>29</td><td>53</td><td>421分</td><td></td></tr>
-<tr><td><span class="score-pill s-bad">30</span></td><td><strong>generate_action_guide</strong></td><td style="color:#86868b">analyzer.py:730</td><td>123</td><td>18</td><td>24</td><td>223分</td><td></td></tr>
-<tr><td><span class="score-pill s-bad">30</span></td><td><strong>calc_graph_metrics</strong></td><td style="color:#86868b">analyzer.py:927</td><td>59</td><td>20</td><td>32</td><td>129分</td><td></td></tr>
-<tr><td><span class="score-pill s-bad">35</span></td><td><strong>_analyze_file</strong></td><td style="color:#86868b">analyzer.py:89</td><td>93</td><td>26</td><td>65</td><td>326分</td><td></td></tr>
-<tr><td><span class="score-pill s-bad">50</span></td><td><strong>calc_impact_scores</strong></td><td style="color:#86868b">analyzer.py:268</td><td>56</td><td>13</td><td>30</td><td>82分</td><td></td></tr>
-<tr><td><span class="score-pill s-ok">60</span></td><td><strong>generate_report</strong></td><td style="color:#86868b">analyzer.py:990</td><td>71</td><td>9</td><td>4</td><td>47分</td><td></td></tr>
-<tr><td><span class="score-pill s-ok">60</span></td><td><strong>walk</strong></td><td style="color:#86868b">analyzer.py:363</td><td>33</td><td>12</td><td>23</td><td>44分</td><td></td></tr>
-<tr><td><span class="score-pill s-ok">65</span></td><td><strong>_detect_cycles_in_modules</strong></td><td style="color:#86868b">analyzer.py:239</td><td>25</td><td>12</td><td>33</td><td>74分</td><td></td></tr>
-<tr><td><span class="score-pill s-ok">65</span></td><td><strong>_calc_cognitive_complexity</strong></td><td style="color:#86868b">analyzer.py:351</td><td>48</td><td>12</td><td>33</td><td>74分</td><td></td></tr>
-<tr><td><span class="score-pill s-ok">65</span></td><td><strong>_render_html</strong></td><td style="color:#86868b">analyzer.py:1063</td><td>845</td><td>3</td><td>2</td><td>1590分</td><td></td></tr>
-<tr><td><span class="score-pill s-ok">65</span></td><td><strong>main</strong></td><td style="color:#86868b">analyzer.py:2036</td><td>82</td><td>9</td><td>2</td><td>69分</td><td></td></tr>
-<tr><td><span class="score-pill s-ok">70</span></td><td><strong>analyze_git_history</strong></td><td style="color:#86868b">analyzer.py:462</td><td>51</td><td>10</td><td>10</td><td>12分</td><td></td></tr>
-<tr><td><span class="score-pill s-good">85</span></td><td><strong>_suggest_fix</strong></td><td style="color:#86868b">analyzer.py:710</td><td>16</td><td>9</td><td>8</td><td>5分</td><td></td></tr>
-<tr><td><span class="score-pill s-good">85</span></td><td><strong>_build_action_guide_html</strong></td><td style="color:#86868b">analyzer.py:855</td><td>68</td><td>5</td><td>4</td><td>36分</td><td></td></tr>
-<tr><td><span class="score-pill s-good">90</span></td><td><strong>build_import_graph</strong></td><td style="color:#86868b">analyzer.py:220</td><td>17</td><td>7</td><td>17</td><td>6分</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>build_call_graph</strong></td><td style="color:#86868b">analyzer.py:201</td><td>15</td><td>6</td><td>11</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>find_duplicates</strong></td><td style="color:#86868b">analyzer.py:328</td><td>19</td><td>7</td><td>6</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_estimate_tech_debt</strong></td><td style="color:#86868b">analyzer.py:403</td><td>19</td><td>4</td><td>3</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_check_security</strong></td><td style="color:#86868b">analyzer.py:442</td><td>7</td><td>3</td><td>3</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>check_module_security</strong></td><td style="color:#86868b">analyzer.py:451</td><td>7</td><td>3</td><td>3</td><td>-</td><td><span style="background:#fde8e8;color:#c0392b;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600">未使用？</span></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>calc_hotspots</strong></td><td style="color:#86868b">analyzer.py:515</td><td>38</td><td>5</td><td>9</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_warnings_html</strong></td><td style="color:#86868b">analyzer.py:1910</td><td>16</td><td>3</td><td>2</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_modules_html</strong></td><td style="color:#86868b">analyzer.py:1928</td><td>17</td><td>3</td><td>1</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_functions_html</strong></td><td style="color:#86868b">analyzer.py:1947</td><td>27</td><td>5</td><td>7</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_duplicates_html</strong></td><td style="color:#86868b">analyzer.py:1976</td><td>14</td><td>3</td><td>2</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_hotspots_html</strong></td><td style="color:#86868b">analyzer.py:1992</td><td>20</td><td>4</td><td>2</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_build_impact_html</strong></td><td style="color:#86868b">analyzer.py:2014</td><td>18</td><td>5</td><td>2</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>__init__</strong></td><td style="color:#86868b">analyzer.py:78</td><td>4</td><td>1</td><td>0</td><td>-</td><td><span style="background:#fde8e8;color:#c0392b;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600">未使用？</span></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>analyze</strong></td><td style="color:#86868b">analyzer.py:83</td><td>5</td><td>3</td><td>4</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_find_parent_class</strong></td><td style="color:#86868b">analyzer.py:183</td><td>7</td><td>5</td><td>10</td><td>-</td><td></td></tr>
-<tr><td><span class="score-pill s-good">100</span></td><td><strong>_get_call_name</strong></td><td style="color:#86868b">analyzer.py:191</td><td>6</td><td>3</td><td>4</td><td>-</td><td></td></tr></table>
-    </div>
   </div>
 
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/force-graph"></script>
+<script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1"></script>
+
 <script>
-const nodes = [{"id": "analyzer.build_call_graph", "label": "build_call_graph", "module": "analyzer", "file": "analyzer.py", "line": 201, "lines": 15, "complexity": 6, "cognitive": 11, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.build_import_graph", "label": "build_import_graph", "module": "analyzer", "file": "analyzer.py", "line": 220, "lines": 17, "complexity": 7, "cognitive": 17, "score": 90, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 6, "security": 0}, {"id": "analyzer._detect_cycles_in_modules", "label": "_detect_cycles_in_modules", "module": "analyzer", "file": "analyzer.py", "line": 239, "lines": 25, "complexity": 12, "cognitive": 33, "score": 65, "pagerank": 0.0093, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 74, "security": 0}, {"id": "analyzer.calc_impact_scores", "label": "calc_impact_scores", "module": "analyzer", "file": "analyzer.py", "line": 268, "lines": 56, "complexity": 13, "cognitive": 30, "score": 50, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 82, "security": 0}, {"id": "analyzer.find_duplicates", "label": "find_duplicates", "module": "analyzer", "file": "analyzer.py", "line": 328, "lines": 19, "complexity": 7, "cognitive": 6, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._calc_cognitive_complexity", "label": "_calc_cognitive_complexity", "module": "analyzer", "file": "analyzer.py", "line": 351, "lines": 48, "complexity": 12, "cognitive": 33, "score": 65, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 74, "security": 0}, {"id": "analyzer._estimate_tech_debt", "label": "_estimate_tech_debt", "module": "analyzer", "file": "analyzer.py", "line": 403, "lines": 19, "complexity": 4, "cognitive": 3, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._check_security", "label": "_check_security", "module": "analyzer", "file": "analyzer.py", "line": 442, "lines": 7, "complexity": 3, "cognitive": 3, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.check_module_security", "label": "check_module_security", "module": "analyzer", "file": "analyzer.py", "line": 451, "lines": 7, "complexity": 3, "cognitive": 3, "score": 100, "pagerank": 0.00484, "in_degree": 0, "impact": 0, "is_isolated": true, "debt_min": 0, "security": 0}, {"id": "analyzer.analyze_git_history", "label": "analyze_git_history", "module": "analyzer", "file": "analyzer.py", "line": 462, "lines": 51, "complexity": 10, "cognitive": 10, "score": 70, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 12, "security": 0}, {"id": "analyzer.calc_hotspots", "label": "calc_hotspots", "module": "analyzer", "file": "analyzer.py", "line": 515, "lines": 38, "complexity": 5, "cognitive": 9, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.calc_quality_scores", "label": "calc_quality_scores", "module": "analyzer", "file": "analyzer.py", "line": 557, "lines": 151, "complexity": 29, "cognitive": 53, "score": 20, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 421, "security": 0}, {"id": "analyzer._suggest_fix", "label": "_suggest_fix", "module": "analyzer", "file": "analyzer.py", "line": 710, "lines": 16, "complexity": 9, "cognitive": 8, "score": 85, "pagerank": 0.0093, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 5, "security": 0}, {"id": "analyzer.generate_action_guide", "label": "generate_action_guide", "module": "analyzer", "file": "analyzer.py", "line": 730, "lines": 123, "complexity": 18, "cognitive": 24, "score": 30, "pagerank": 0.00633, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 223, "security": 0}, {"id": "analyzer._build_action_guide_html", "label": "_build_action_guide_html", "module": "analyzer", "file": "analyzer.py", "line": 855, "lines": 68, "complexity": 5, "cognitive": 4, "score": 85, "pagerank": 0.00633, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 36, "security": 0}, {"id": "analyzer.calc_graph_metrics", "label": "calc_graph_metrics", "module": "analyzer", "file": "analyzer.py", "line": 927, "lines": 59, "complexity": 20, "cognitive": 32, "score": 30, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 129, "security": 0}, {"id": "analyzer.generate_report", "label": "generate_report", "module": "analyzer", "file": "analyzer.py", "line": 990, "lines": 71, "complexity": 9, "cognitive": 4, "score": 60, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 47, "security": 0}, {"id": "analyzer._render_html", "label": "_render_html", "module": "analyzer", "file": "analyzer.py", "line": 1063, "lines": 845, "complexity": 3, "cognitive": 2, "score": 65, "pagerank": 0.00633, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 1590, "security": 0}, {"id": "analyzer._build_warnings_html", "label": "_build_warnings_html", "module": "analyzer", "file": "analyzer.py", "line": 1910, "lines": 16, "complexity": 3, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_modules_html", "label": "_build_modules_html", "module": "analyzer", "file": "analyzer.py", "line": 1928, "lines": 17, "complexity": 3, "cognitive": 1, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_functions_html", "label": "_build_functions_html", "module": "analyzer", "file": "analyzer.py", "line": 1947, "lines": 27, "complexity": 5, "cognitive": 7, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_duplicates_html", "label": "_build_duplicates_html", "module": "analyzer", "file": "analyzer.py", "line": 1976, "lines": 14, "complexity": 3, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_hotspots_html", "label": "_build_hotspots_html", "module": "analyzer", "file": "analyzer.py", "line": 1992, "lines": 20, "complexity": 4, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer._build_impact_html", "label": "_build_impact_html", "module": "analyzer", "file": "analyzer.py", "line": 2014, "lines": 18, "complexity": 5, "cognitive": 2, "score": 100, "pagerank": 0.00573, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.main", "label": "main", "module": "analyzer", "file": "analyzer.py", "line": 2036, "lines": 82, "complexity": 9, "cognitive": 2, "score": 65, "pagerank": 0.00484, "in_degree": 0, "impact": 0, "is_isolated": false, "debt_min": 69, "security": 0}, {"id": "analyzer.CodeAnalyzer.__init__", "label": "__init__", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 78, "lines": 4, "complexity": 1, "cognitive": 0, "score": 100, "pagerank": 0.00484, "in_degree": 0, "impact": 0, "is_isolated": true, "debt_min": 0, "security": 0}, {"id": "analyzer.CodeAnalyzer.analyze", "label": "analyze", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 83, "lines": 5, "complexity": 3, "cognitive": 4, "score": 100, "pagerank": 0.00525, "in_degree": 1, "impact": 1, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.CodeAnalyzer._analyze_file", "label": "_analyze_file", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 89, "lines": 93, "complexity": 26, "cognitive": 65, "score": 35, "pagerank": 0.0093, "in_degree": 1, "impact": 2, "is_isolated": false, "debt_min": 326, "security": 0}, {"id": "analyzer.CodeAnalyzer._find_parent_class", "label": "_find_parent_class", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 183, "lines": 7, "complexity": 5, "cognitive": 10, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.CodeAnalyzer._get_call_name", "label": "_get_call_name", "module": "analyzer.CodeAnalyzer", "file": "analyzer.py", "line": 191, "lines": 6, "complexity": 3, "cognitive": 4, "score": 100, "pagerank": 0.00616, "in_degree": 1, "impact": 3, "is_isolated": false, "debt_min": 0, "security": 0}, {"id": "analyzer.walk", "label": "walk", "module": "analyzer", "file": "analyzer.py", "line": 363, "lines": 33, "complexity": 12, "cognitive": 23, "score": 60, "pagerank": 0.01662, "in_degree": 3, "impact": 5, "is_isolated": false, "debt_min": 44, "security": 0}];
-const edges = [{"source": "analyzer.build_import_graph", "target": "analyzer._detect_cycles_in_modules"}, {"source": "analyzer._calc_cognitive_complexity", "target": "analyzer.walk"}, {"source": "analyzer._calc_cognitive_complexity", "target": "analyzer.walk"}, {"source": "analyzer._calc_cognitive_complexity", "target": "analyzer.walk"}, {"source": "analyzer.calc_quality_scores", "target": "analyzer._suggest_fix"}, {"source": "analyzer.generate_report", "target": "analyzer.generate_action_guide"}, {"source": "analyzer.generate_report", "target": "analyzer._build_action_guide_html"}, {"source": "analyzer.generate_report", "target": "analyzer._render_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_warnings_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_modules_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_functions_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_duplicates_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_impact_html"}, {"source": "analyzer._render_html", "target": "analyzer._build_hotspots_html"}, {"source": "analyzer.main", "target": "analyzer.CodeAnalyzer.analyze"}, {"source": "analyzer.main", "target": "analyzer.build_call_graph"}, {"source": "analyzer.main", "target": "analyzer.calc_graph_metrics"}, {"source": "analyzer.main", "target": "analyzer.build_import_graph"}, {"source": "analyzer.main", "target": "analyzer.calc_impact_scores"}, {"source": "analyzer.main", "target": "analyzer.find_duplicates"}, {"source": "analyzer.main", "target": "analyzer.analyze_git_history"}, {"source": "analyzer.main", "target": "analyzer.calc_hotspots"}, {"source": "analyzer.main", "target": "analyzer.calc_quality_scores"}, {"source": "analyzer.main", "target": "analyzer.generate_report"}, {"source": "analyzer.CodeAnalyzer.analyze", "target": "analyzer.CodeAnalyzer._analyze_file"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.walk"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.walk"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.CodeAnalyzer._find_parent_class"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.walk"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.walk"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer._calc_cognitive_complexity"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer._check_security"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer._estimate_tech_debt"}, {"source": "analyzer.CodeAnalyzer._analyze_file", "target": "analyzer.CodeAnalyzer._get_call_name"}, {"source": "analyzer.CodeAnalyzer._find_parent_class", "target": "analyzer.walk"}, {"source": "analyzer.CodeAnalyzer._find_parent_class", "target": "analyzer.walk"}];
-let showLabels = true;
+// ========== 状態管理 ==========
+let pyodide = null;
+let pyodideReady = false;
+let currentResult = null;
+let graphs = { graph2d: null, graph3d: null, imports2d: null, imports3d: null };
 
-// タブ切り替え
-function switchTab(name) {
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  event.target.classList.add('active');
-  if (name === 'graph') {
-    setTimeout(() => {
-      initCanvas();
-      frame = 0;
-      animate();
-    }, 100);
+// ========== Pyodide初期化 ==========
+
+async function initPyodide() {
+  setLoading('Python実行環境を読み込み中...', '初回は5〜10秒ほどかかります');
+
+  pyodide = await loadPyodide({
+    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/'
+  });
+
+  setLoading('必要なライブラリを読み込み中...', 'numpy をインストール中');
+  await pyodide.loadPackage('numpy');
+
+  setLoading('解析エンジンを配置中...', '');
+  const files = ['analyzer.py', 'web_analyzer.py'];
+  for (const f of files) {
+    const res = await fetch(f + '?v=' + Date.now());
+    if (!res.ok) throw new Error(`${f} の取得に失敗しました`);
+    const code = await res.text();
+    pyodide.FS.writeFile(f, code);
   }
-  if (name === 'graph3d') { init3D(); }
+
+  await pyodide.runPythonAsync(`
+import sys
+sys.path.insert(0, '.')
+from web_analyzer import analyze_single_file
+  `);
+
+  pyodideReady = true;
 }
 
-// グラフ描画
-const canvas = document.getElementById('graphCanvas');
-const ctx = canvas.getContext('2d');
-let W = 900, H = 800;
+// ========== UI操作 ==========
 
-const COLORS = ['#007aff','#34c759','#ff9500','#af52de','#5ac8fa','#ffcc00','#ff2d55','#64d2ff','#30d158','#ff6b6b'];
-const moduleColors = {};
-let colorIdx = 0;
-nodes.forEach(n => {
-  if (!(n.module in moduleColors)) { moduleColors[n.module] = COLORS[colorIdx++ % COLORS.length]; }
-});
-
-const positions = {};
-let canvasInited = false;
-
-function initCanvas() {
-  const c = document.getElementById('graphCanvas');
-  if (!c) return;
-  W = c.parentElement.clientWidth || 900;
-  H = 800;
-  const dpr = window.devicePixelRatio || 1;
-  c.width = W * dpr;
-  c.height = H * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  // ノード位置を再初期化
-  nodes.forEach((n, i) => {
-    const angle = (i / nodes.length) * Math.PI * 2;
-    const r = Math.min(W, H) * 0.3 + Math.random() * 50;
-    positions[n.id] = { x: W/2 + Math.cos(angle)*r, y: H/2 + Math.sin(angle)*r, vx: 0, vy: 0 };
-  });
-  canvasInited = true;
+function setLoading(msg, progress) {
+  document.getElementById('loadingMsg').textContent = msg;
+  document.getElementById('loadingProgress').textContent = progress || '';
 }
 
-function simulate() {
-  if (!canvasInited) return;
-  const repulsion = Math.max(5000, W * 5);
-  nodes.forEach(a => {
-    nodes.forEach(b => {
-      if (a.id === b.id) return;
-      const pa = positions[a.id], pb = positions[b.id];
-      if (!pa || !pb) return;
-      const dx = pa.x-pb.x, dy = pa.y-pb.y;
-      const dist = Math.max(Math.sqrt(dx*dx+dy*dy), 1);
-      const f = repulsion / (dist*dist);
-      pa.vx += (dx/dist)*f; pa.vy += (dy/dist)*f;
+function showLoading(show) {
+  document.getElementById('loading').style.display = show ? 'block' : 'none';
+}
+
+function showResults(show) {
+  document.getElementById('results').style.display = show ? 'block' : 'none';
+}
+
+function showError(msg, detail) {
+  const el = document.getElementById('errorSection');
+  el.innerHTML = `<div class="error-box"><strong>エラー:</strong> ${msg}${detail ? '<pre>' + detail + '</pre>' : ''}</div>`;
+  el.style.display = 'block';
+}
+
+function hideError() {
+  document.getElementById('errorSection').style.display = 'none';
+}
+
+async function loadSample() {
+  try {
+    const res = await fetch('sample_code.py?v=' + Date.now());
+    if (!res.ok) throw new Error('サンプルコードの取得に失敗しました');
+    const code = await res.text();
+    document.getElementById('codeInput').value = code;
+    document.getElementById('statusText').textContent = 'サンプル読込済み。「解析する」を押してください';
+  } catch (e) {
+    showError(e.message);
+  }
+}
+
+function clearCode() {
+  document.getElementById('codeInput').value = '';
+  document.getElementById('statusText').textContent = '準備完了';
+}
+
+// ========== 解析実行 ==========
+
+async function analyze() {
+  const code = document.getElementById('codeInput').value;
+  if (!code.trim()) {
+    showError('コードを入力してください');
+    return;
+  }
+
+  hideError();
+  showResults(false);
+  showLoading(true);
+  document.getElementById('analyzeBtn').disabled = true;
+
+  try {
+    if (!pyodideReady) {
+      await initPyodide();
+    }
+
+    setLoading('コードを解析中...', 'Pythonで実行中');
+
+    pyodide.globals.set('user_code_input', code);
+    await pyodide.runPythonAsync(`
+import json
+_result_dict = analyze_single_file(user_code_input)
+_result_json = json.dumps(_result_dict, ensure_ascii=False, default=str)
+    `);
+
+    const resultJson = pyodide.globals.get('_result_json');
+    currentResult = JSON.parse(resultJson);
+
+    renderResults(currentResult);
+    showLoading(false);
+    showResults(true);
+    document.getElementById('statusText').textContent = '解析完了';
+  } catch (e) {
+    showLoading(false);
+    console.error(e);
+    showError('解析に失敗しました: ' + e.message, e.stack || '');
+  } finally {
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+}
+
+// ========== 結果描画 ==========
+
+function renderResults(result) {
+  renderStats(result.stats);
+  renderProblems(result.warnings);
+  renderImpact(result.nodes);
+  renderDuplicates(result.duplicates);
+  renderFiles(result.modules);
+  renderFunctions(result.nodes);
+
+  // グラフは初期タブ時は非表示なので、タブクリック時に初期化
+  initGraph2D('graph2d-container', result.nodes, result.edges);
+  initImports2D('imports2d-container', result.modules, result.module_edges);
+}
+
+function renderStats(s) {
+  const avg = s.avg_score || 0;
+  const avgCls = avg >= 80 ? 'green' : avg >= 60 ? 'orange' : 'red';
+  const health = avg >= 80 ? ['healthy', '健康'] : avg >= 60 ? ['caution', '要注意'] : ['danger', '要改善'];
+
+  document.getElementById('stat-avg').textContent = avg;
+  document.getElementById('stat-avg').className = 'value ' + avgCls;
+
+  const hb = document.getElementById('health-badge');
+  hb.textContent = health[1];
+  hb.className = 'health-badge ' + health[0];
+  hb.style.display = 'inline-block';
+
+  setStat('stat-high', s.n_high, v => v > 5 ? 'red' : v > 0 ? 'orange' : 'green');
+  setStat('stat-cycles', s.n_cycles, v => v > 0 ? 'red' : 'green');
+  setStat('stat-debt', s.debt_hours + 'h', _ => s.debt_hours > 8 ? 'red' : s.debt_hours > 2 ? 'orange' : 'green');
+  setStat('stat-sec', s.sec_count, v => v > 3 ? 'red' : v > 0 ? 'orange' : 'green');
+  setStat('stat-isolated', s.isolated_count, v => v > 3 ? 'orange' : 'green');
+  setStat('stat-funcs', s.n_functions, _ => '');
+  setStat('stat-lines', s.n_lines, _ => '');
+}
+
+function setStat(id, value, colorFn) {
+  const el = document.getElementById(id);
+  el.textContent = value;
+  const numValue = typeof value === 'number' ? value : parseFloat(value) || 0;
+  el.className = 'value ' + (colorFn(numValue) || '');
+}
+
+function renderProblems(warnings) {
+  const order = { high: 0, medium: 1, info: 2 };
+  const sorted = [...warnings].sort((a, b) => (order[a.severity] || 3) - (order[b.severity] || 3));
+  const container = document.getElementById('problems-content');
+  if (sorted.length === 0) {
+    container.innerHTML = '<p class="empty">問題は見つかりませんでした 🎉</p>';
+    return;
+  }
+  container.innerHTML = sorted.map(w => {
+    const loc = (w.file && w.line) ? `<div class="loc">${escapeHtml(w.file)}:${w.line}</div>` : '';
+    return `<div class="warning ${w.severity}">
+      <div class="warning-header">
+        <span class="tag">${w.severity.toUpperCase()}</span>
+        <span class="target">${escapeHtml(w.target)}</span>
+      </div>
+      <div class="msg">${escapeHtml(w.message)}</div>
+      ${loc}
+      <div class="fix">${escapeHtml(w.fix)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderImpact(nodes) {
+  const sorted = [...nodes].sort((a, b) => b.impact - a.impact);
+  const top = sorted.filter(n => n.impact > 0).slice(0, 20);
+  const container = document.getElementById('impact-content');
+  if (top.length === 0) {
+    container.innerHTML = '<p class="empty">影響範囲の大きい関数はありません</p>';
+    return;
+  }
+  const maxImpact = Math.max(...top.map(n => n.impact));
+  container.innerHTML = top.map(n => {
+    const barW = Math.max(4, Math.round(n.impact / maxImpact * 300));
+    const color = n.impact >= 5 ? '#ff3b30' : n.impact >= 2 ? '#ff9500' : '#34c759';
+    return `<div class="module-row">
+      <span class="name">${escapeHtml(n.label)}</span>
+      <div class="bar" style="width:${barW}px;background:${color}"></div>
+      <span class="info">変更すると${n.impact}個の関数に影響</span>
+    </div>`;
+  }).join('');
+}
+
+function renderDuplicates(duplicates) {
+  const container = document.getElementById('duplicates-content');
+  if (!duplicates || duplicates.length === 0) {
+    container.innerHTML = '<p class="empty">重複コードは見つかりませんでした</p>';
+    return;
+  }
+  container.innerHTML = duplicates.map(d => {
+    const names = (d.names || []).join(', ');
+    const files = (d.files || []).join(', ');
+    return `<div class="dup-card">
+      <div class="funcs">${escapeHtml(names)}</div>
+      <div class="detail">${d.lines}行のほぼ同じコード / ${escapeHtml(files)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderFiles(modules) {
+  const sorted = [...modules].sort((a, b) => b.lines - a.lines);
+  const maxLines = Math.max(...sorted.map(m => m.lines), 1);
+  const container = document.getElementById('files-content');
+  if (sorted.length === 0) {
+    container.innerHTML = '<p class="empty">ファイルがありません</p>';
+    return;
+  }
+  container.innerHTML = sorted.map(m => {
+    const barW = Math.max(4, Math.round(m.lines / maxLines * 300));
+    const sc = m.score >= 80 ? 's-good' : m.score >= 60 ? 's-ok' : 's-bad';
+    const name = m.name.split('.').pop() + '.py';
+    return `<div class="module-row">
+      <span class="score-pill ${sc}">${m.score}</span>
+      <span class="name">${escapeHtml(name)}</span>
+      <div class="bar" style="width:${barW}px"></div>
+      <span class="info">${m.lines}行 / ${m.n_functions}関数 / 影響${m.impact}ファイル</span>
+    </div>`;
+  }).join('');
+}
+
+function renderFunctions(nodes) {
+  const sorted = [...nodes].sort((a, b) => a.score - b.score);
+  const container = document.getElementById('functions-content');
+  if (sorted.length === 0) {
+    container.innerHTML = '<p class="empty">関数がありません</p>';
+    return;
+  }
+  const rows = sorted.map(n => {
+    const sc = n.score >= 80 ? 's-good' : n.score >= 60 ? 's-ok' : 's-bad';
+    let tags = '';
+    if (n.is_isolated) tags += '<span style="background:#fde8e8;color:#c0392b;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600">未使用？</span> ';
+    if (n.security > 0) tags += '<span style="background:#fde8e8;color:#c0392b;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600">脆弱性</span> ';
+    if (n.in_degree >= 5) tags += '<span style="background:#fef0e6;color:#c2410c;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600">重要</span> ';
+    const debt = n.debt_min > 0 ? `${n.debt_min}分` : '-';
+    return `<tr>
+      <td><span class="score-pill ${sc}">${n.score}</span></td>
+      <td><strong>${escapeHtml(n.label)}</strong></td>
+      <td style="color:#86868b">${escapeHtml(n.file)}:${n.line}</td>
+      <td>${n.lines}</td>
+      <td>${n.complexity}</td>
+      <td>${n.cognitive}</td>
+      <td>${debt}</td>
+      <td>${tags}</td>
+    </tr>`;
+  }).join('');
+  container.innerHTML = `<table><tr><th>スコア</th><th>関数名</th><th>場所</th><th>行数</th><th>複雑さ</th><th>認知的</th><th>負債</th><th>タグ</th></tr>${rows}</table>`;
+}
+
+// ========== グラフ可視化 ==========
+
+function nodeColor(n) {
+  if (n.is_isolated) return '#8e8e93';
+  if (n.score < 50) return '#ff3b30';
+  if (n.score < 70) return '#ff9500';
+  return '#34c759';
+}
+
+function nodeSize(n) {
+  return Math.max(4, 4 + n.in_degree * 1.5 + (n.pagerank || 0) * 200);
+}
+
+function initGraph2D(containerId, nodes, edges) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  const graphData = {
+    nodes: nodes.map(n => ({ ...n, val: nodeSize(n), color: nodeColor(n) })),
+    links: edges.map(e => ({ source: e.source, target: e.target })),
+  };
+  const graph = ForceGraph()(el)
+    .graphData(graphData)
+    .nodeLabel(n => `${n.label}<br>スコア: ${n.score} / 呼ばれ回数: ${n.in_degree}`)
+    .nodeColor(n => n.color)
+    .nodeVal(n => n.val)
+    .linkColor(() => 'rgba(0,0,0,0.15)')
+    .linkDirectionalArrowLength(4)
+    .linkDirectionalArrowRelPos(1)
+    .width(el.offsetWidth)
+    .height(600)
+    .d3AlphaDecay(0.04)
+    .nodeCanvasObject((node, ctx, globalScale) => {
+      const r = Math.sqrt(node.val) * 2.5;
+      ctx.fillStyle = node.color;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+      ctx.fill();
+      if (globalScale >= 1.5) {
+        ctx.fillStyle = '#1d1d1f';
+        ctx.font = `${11 / globalScale}px -apple-system, sans-serif`;
+        ctx.fillText(node.label, node.x + r + 2, node.y + 3);
+      }
     });
-  });
-  edges.forEach(e => {
-    const pa = positions[e.source], pb = positions[e.target];
-    if (!pa || !pb) return;
-    const dx = pb.x-pa.x, dy = pb.y-pa.y;
-    const dist = Math.max(Math.sqrt(dx*dx+dy*dy), 1);
-    const f = dist * 0.003;
-    pa.vx += (dx/dist)*f; pa.vy += (dy/dist)*f;
-    pb.vx -= (dx/dist)*f; pb.vy -= (dy/dist)*f;
-  });
-  nodes.forEach(n => {
-    const p = positions[n.id];
-    if (!p) return;
-    p.vx += (W/2-p.x)*0.001; p.vy += (H/2-p.y)*0.001;
-    p.vx *= 0.88; p.vy *= 0.88;
-    p.x += p.vx; p.y += p.vy;
-    p.x = Math.max(30, Math.min(W-30, p.x));
-    p.y = Math.max(30, Math.min(H-30, p.y));
-  });
+  graphs[containerId.replace('-container', '').replace('graph', 'graph')] = graph;
+  graphs.graph2d = graph;
 }
 
-function draw() {
-  if (!canvasInited) return;
-  ctx.fillStyle = '#f5f5f7';
-  ctx.fillRect(0, 0, W, H);
-  edges.forEach(e => {
-    const pa = positions[e.source], pb = positions[e.target];
-    if (!pa || !pb) return;
-    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
-  });
-  nodes.forEach(n => {
-    const p = positions[n.id];
-    const r = Math.max(3, 3 + n.in_degree * 2 + n.pagerank * 200);
-    ctx.shadowColor = 'rgba(0,0,0,0.08)'; ctx.shadowBlur = 4;
-    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2);
-    ctx.fillStyle = n.is_isolated ? '#ff3b30' : moduleColors[n.module] || '#007aff';
-    ctx.globalAlpha = n.score < 50 ? 0.95 : 0.65;
-    ctx.fill(); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-    if (showLabels && r > 4) {
-      ctx.fillStyle = '#1d1d1f'; ctx.font = '500 12px -apple-system, sans-serif';
-      ctx.fillText(n.label, p.x+r+5, p.y+4);
+function initGraph3D(containerId, nodes, edges) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  const graphData = {
+    nodes: nodes.map(n => ({ ...n, val: nodeSize(n), color: nodeColor(n) })),
+    links: edges.map(e => ({ source: e.source, target: e.target })),
+  };
+  const graph = ForceGraph3D()(el)
+    .graphData(graphData)
+    .nodeLabel(n => `${n.label} (score ${n.score})`)
+    .nodeColor(n => n.color)
+    .nodeVal(n => n.val)
+    .linkColor(() => 'rgba(200,200,255,0.2)')
+    .linkDirectionalArrowLength(3)
+    .linkDirectionalArrowRelPos(1)
+    .backgroundColor('#0a0a1a')
+    .width(el.offsetWidth)
+    .height(600);
+  graphs.graph3d = graph;
+}
+
+function initImports2D(containerId, modules, moduleEdges) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  if (!modules || modules.length <= 1) {
+    el.innerHTML = '<p class="empty">単一ファイルのためimport関係はありません</p>';
+    return;
+  }
+  const graphData = {
+    nodes: modules.map(m => ({
+      id: m.name, label: m.name.split('.').pop(),
+      val: Math.max(6, m.lines / 50),
+      color: m.score >= 80 ? '#34c759' : m.score >= 60 ? '#ff9500' : '#ff3b30',
+    })),
+    links: (moduleEdges || []).map(e => ({ source: e.source, target: e.target })),
+  };
+  const graph = ForceGraph()(el)
+    .graphData(graphData)
+    .nodeLabel(n => n.label)
+    .nodeColor(n => n.color)
+    .nodeVal(n => n.val)
+    .linkColor(() => 'rgba(0,0,0,0.2)')
+    .linkDirectionalArrowLength(5)
+    .width(el.offsetWidth)
+    .height(400);
+  graphs.imports2d = graph;
+}
+
+function initImports3D(containerId, modules, moduleEdges) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  if (!modules || modules.length <= 1) {
+    el.innerHTML = '<p class="empty" style="color:#ccc">単一ファイルのためimport関係はありません</p>';
+    return;
+  }
+  const graphData = {
+    nodes: modules.map(m => ({
+      id: m.name, label: m.name.split('.').pop(),
+      val: Math.max(6, m.lines / 50),
+      color: m.score >= 80 ? '#34c759' : m.score >= 60 ? '#ff9500' : '#ff3b30',
+    })),
+    links: (moduleEdges || []).map(e => ({ source: e.source, target: e.target })),
+  };
+  const graph = ForceGraph3D()(el)
+    .graphData(graphData)
+    .nodeLabel(n => n.label)
+    .nodeColor(n => n.color)
+    .nodeVal(n => n.val)
+    .backgroundColor('#0a0a1a')
+    .width(el.offsetWidth)
+    .height(400);
+  graphs.imports3d = graph;
+}
+
+// ========== タブとビュー切り替え ==========
+
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tabName = btn.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+
+    // グラフタブの場合、サイズを再計算
+    if (tabName === 'graph' && graphs.graph2d) {
+      const el = document.getElementById('graph2d-container');
+      if (el.offsetWidth) graphs.graph2d.width(el.offsetWidth);
+    }
+    if (tabName === 'imports' && graphs.imports2d) {
+      const el = document.getElementById('imports2d-container');
+      if (el.offsetWidth) graphs.imports2d.width(el.offsetWidth);
     }
   });
-}
+});
 
-let frame = 0;
-function animate() { if (frame < 250) simulate(); draw(); frame++; requestAnimationFrame(animate); }
-function resetView() { initCanvas(); frame = 0; }
-function toggleLabels() { showLabels = !showLabels; }
+function switchView(view, tabType) {
+  const prefix = tabType === 'graph' ? 'graph' : 'imports';
+  const el2d = document.getElementById(prefix + '2d-container');
+  const el3d = document.getElementById(prefix + '3d-container');
 
-// 2D クリック → ノード情報ポップアップ
-canvas.addEventListener('click', (e) => {
-  if (!canvasInited) return;
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  const mx = (e.clientX - rect.left);
-  const my = (e.clientY - rect.top);
-  let hit = null;
-  nodes.forEach(n => {
-    const p = positions[n.id];
-    if (!p) return;
-    const r = Math.max(3, 3 + n.in_degree * 2 + n.pagerank * 200);
-    const dx = mx - p.x, dy = my - p.y;
-    if (dx*dx + dy*dy < (r+5)*(r+5)) hit = n;
-  });
-  if (hit) {
-    showNodePopup(hit, e.clientX, e.clientY);
+  // ボタンの active 切り替え
+  const tabEl = document.getElementById('tab-' + tabType);
+  tabEl.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  tabEl.querySelector(`.view-btn[data-view="${view}"]`).classList.add('active');
+
+  if (view === '3d') {
+    el2d.style.display = 'none';
+    el3d.style.display = 'block';
+    if (currentResult) {
+      if (tabType === 'graph' && !graphs.graph3d) {
+        initGraph3D(prefix + '3d-container', currentResult.nodes, currentResult.edges);
+      } else if (tabType === 'imports' && !graphs.imports3d) {
+        initImports3D(prefix + '3d-container', currentResult.modules, currentResult.module_edges);
+      }
+    }
   } else {
-    hideNodePopup();
+    el2d.style.display = 'block';
+    el3d.style.display = 'none';
   }
+}
+
+// ========== ユーティリティ ==========
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// 初回ロード時にPyodideを事前起動（UX向上）
+window.addEventListener('load', () => {
+  // 遅延起動（ユーザーがサンプル読むのを待たせない）
+  setTimeout(() => {
+    if (!pyodideReady) {
+      document.getElementById('statusText').textContent = 'Python環境を準備中...（初回のみ時間がかかります）';
+      initPyodide().then(() => {
+        document.getElementById('statusText').textContent = '準備完了。コードを入力して「解析する」を押してください';
+      }).catch(e => {
+        document.getElementById('statusText').textContent = 'Python環境の準備に失敗: ' + e.message;
+      });
+    }
+  }, 500);
 });
-
-// ポップアップ
-let popup = null;
-function showNodePopup(n, x, y) {
-  hideNodePopup();
-  popup = document.createElement('div');
-  const sc = n.score >= 80 ? '#34c759' : n.score >= 60 ? '#ff9500' : '#ff3b30';
-  popup.innerHTML = `
-    <div style="font-weight:700;font-size:16px;margin-bottom:8px">${n.label}</div>
-    <div style="display:grid;grid-template-columns:auto auto;gap:4px 16px;font-size:13px">
-      <span style="color:#86868b">ファイル</span><span>${n.file}:${n.line}</span>
-      <span style="color:#86868b">スコア</span><span style="color:${sc};font-weight:700">${n.score}点</span>
-      <span style="color:#86868b">行数</span><span>${n.lines}行</span>
-      <span style="color:#86868b">複雑さ</span><span>${n.complexity}</span>
-      <span style="color:#86868b">認知的</span><span>${n.cognitive}</span>
-      <span style="color:#86868b">影響範囲</span><span>${n.impact}関数</span>
-      <span style="color:#86868b">被呼出</span><span>${n.in_degree}箇所</span>
-      <span style="color:#86868b">負債</span><span>${n.debt_min}分</span>
-    </div>
-    <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e5e5">
-      <a href="vscode://file/${encodeURIComponent(n.file)}:${n.line}"
-         style="color:#007aff;text-decoration:none;font-size:13px;font-weight:500">
-         VS Codeで開く
-      </a>
-    </div>
-  `;
-  popup.style.cssText = `position:fixed;left:${x+12}px;top:${y-10}px;
-    background:#fff;border-radius:12px;padding:16px 20px;
-    box-shadow:0 8px 30px rgba(0,0,0,0.15);z-index:1000;
-    max-width:320px;border:1px solid #e5e5e5`;
-  document.body.appendChild(popup);
-}
-function hideNodePopup() {
-  if (popup) { popup.remove(); popup = null; }
-}
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideNodePopup(); });
-
-// ========== 3Dグラフ（フォースレイアウト + スコア色 + ハイライト） ==========
-let scene3d, camera3d, renderer3d, controls3d, graph3dInited = false;
-let forceEnabled = true, selectedNodeId = null, time3d = 0;
-const pos3d = {}, nodeMeshes3d = [], edgeLines3d = [], nodeSprites3d = [], glowSprites3d = [];
-
-// スコア → 色（緑→黄→赤のスムーズグラデーション）
-function scoreToColor(s) {
-  if (s >= 80) return new THREE.Color(0.20, 0.78, 0.35);
-  if (s >= 60) {
-    const t = (s - 60) / 20;
-    const c = new THREE.Color();
-    c.r = 1.0 - t * 0.0;  c.g = 0.35 + t * 0.23;  c.b = 0.19 + t * 0.0;
-    return c;
-  }
-  const t = Math.max(0, s) / 60;
-  const c = new THREE.Color();
-  c.r = 1.0;  c.g = t * 0.35;  c.b = t * 0.19;
-  return c;
-}
-
-// 発光テクスチャ生成
-function makeGlowTexture() {
-  const cv = document.createElement('canvas');
-  cv.width = 128; cv.height = 128;
-  const cx = cv.getContext('2d');
-  const g = cx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, 'rgba(255,80,60,0.6)');
-  g.addColorStop(0.4, 'rgba(255,60,48,0.2)');
-  g.addColorStop(1, 'rgba(255,60,48,0)');
-  cx.fillStyle = g;
-  cx.fillRect(0, 0, 128, 128);
-  return new THREE.CanvasTexture(cv);
-}
-
-// 隣接関係ビルド
-const adj3d = {};
-nodes.forEach(n => { adj3d[n.id] = new Set(); });
-edges.forEach(e => {
-  if (adj3d[e.source]) adj3d[e.source].add(e.target);
-  if (adj3d[e.target]) adj3d[e.target].add(e.source);
-});
-
-// 最重要ノード（PageRank最大）
-const heroNode = nodes.reduce((a, b) => (b.pagerank || 0) > (a.pagerank || 0) ? b : a, nodes[0]);
-
-function init3D() {
-  if (graph3dInited) return;
-  graph3dInited = true;
-  const container = document.getElementById('graph3d-container');
-  const w = container.clientWidth, h = 700;
-
-  scene3d = new THREE.Scene();
-  scene3d.background = new THREE.Color(0x08081a);
-
-  camera3d = new THREE.PerspectiveCamera(55, w / h, 1, 2000);
-  camera3d.position.set(0, 40, 280);
-
-  renderer3d = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-  renderer3d.setSize(w, h);
-  renderer3d.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  container.appendChild(renderer3d.domElement);
-
-  controls3d = new THREE.OrbitControls(camera3d, renderer3d.domElement);
-  controls3d.enableDamping = true;
-  controls3d.dampingFactor = 0.08;
-  controls3d.minDistance = 40;
-  controls3d.maxDistance = 600;
-
-  // ライト
-  scene3d.add(new THREE.AmbientLight(0x303050, 0.5));
-  const pt1 = new THREE.PointLight(0xaaccff, 1.0, 600);
-  pt1.position.set(120, 120, 120);
-  scene3d.add(pt1);
-  const pt2 = new THREE.PointLight(0xffaa66, 0.4, 400);
-  pt2.position.set(-80, -60, -80);
-  scene3d.add(pt2);
-
-  const glowTex = makeGlowTexture();
-
-  // ノード配置（モジュール別クラスタ初期配置）
-  const modAngles = {};
-  let modIdx = 0;
-  nodes.forEach(n => {
-    if (!(n.module in modAngles)) {
-      modAngles[n.module] = (modIdx / Object.keys(modAngles).length || 1) * Math.PI * 2 || modIdx * 1.2;
-      modIdx++;
-    }
-  });
-  // 再計算（全モジュール数確定後）
-  const modKeys = Object.keys(modAngles);
-  modKeys.forEach((k, i) => { modAngles[k] = (i / modKeys.length) * Math.PI * 2; });
-
-  nodes.forEach((n, i) => {
-    const baseAngle = modAngles[n.module] || 0;
-    const spread = 40 + Math.random() * 30;
-    const offAngle = baseAngle + (Math.random() - 0.5) * 1.2;
-    const yOff = (Math.random() - 0.5) * 60;
-    pos3d[n.id] = {
-      x: Math.cos(offAngle) * spread,
-      y: yOff,
-      z: Math.sin(offAngle) * spread,
-      vx: 0, vy: 0, vz: 0
-    };
-
-    const size = Math.max(2, 2 + (n.in_degree || 0) * 0.7 + (n.pagerank || 0) * 60);
-    const color = scoreToColor(n.score);
-    const geo = new THREE.SphereGeometry(size, 20, 20);
-    const isDanger = n.score < 60;
-    const mat = new THREE.MeshPhongMaterial({
-      color: color,
-      emissive: color,
-      emissiveIntensity: isDanger ? 0.4 : 0.12,
-      shininess: 100,
-      transparent: true,
-      opacity: 0.9,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(pos3d[n.id].x, pos3d[n.id].y, pos3d[n.id].z);
-    mesh.userData = { ...n, _size: size, _baseEmissive: isDanger ? 0.4 : 0.12 };
-    scene3d.add(mesh);
-    nodeMeshes3d.push(mesh);
-
-    // 発光スプライト（危険ノード）
-    if (isDanger) {
-      const gMat = new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0.7, depthWrite: false });
-      const gSprite = new THREE.Sprite(gMat);
-      gSprite.scale.set(size * 5, size * 5, 1);
-      gSprite.position.copy(mesh.position);
-      gSprite.userData = { nodeId: n.id };
-      scene3d.add(gSprite);
-      glowSprites3d.push(gSprite);
-    }
-
-    // テキストラベル
-    if (size > 2.5 || n.id === heroNode.id) {
-      const cv = document.createElement('canvas');
-      const cx = cv.getContext('2d');
-      cv.width = 512; cv.height = 64;
-      cx.clearRect(0, 0, 512, 64);
-      cx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
-      cx.fillStyle = n.id === heroNode.id ? '#5ac8fa' : '#ffffff';
-      cx.textAlign = 'center';
-      const label = n.id === heroNode.id ? '⭐ ' + n.label : n.label;
-      cx.fillText(label, 256, 40);
-      const tex = new THREE.CanvasTexture(cv);
-      const sMat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.9, depthTest: false });
-      const sprite = new THREE.Sprite(sMat);
-      sprite.position.set(pos3d[n.id].x, pos3d[n.id].y + size + 4, pos3d[n.id].z);
-      sprite.scale.set(size * 5, size * 0.8, 1);
-      sprite.userData = { nodeId: n.id };
-      scene3d.add(sprite);
-      nodeSprites3d.push(sprite);
-    }
-  });
-
-  // ヒーローリング
-  const ringGeo = new THREE.RingGeometry(
-    nodeMeshes3d.find(m => m.userData.id === heroNode.id)?.userData._size * 1.6 || 5,
-    nodeMeshes3d.find(m => m.userData.id === heroNode.id)?.userData._size * 2.0 || 6,
-    32
-  );
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0x5ac8fa, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
-  const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-  const hp = pos3d[heroNode.id];
-  ringMesh.position.set(hp.x, hp.y, hp.z);
-  ringMesh.userData = { _isRing: true, nodeId: heroNode.id };
-  scene3d.add(ringMesh);
-
-  // エッジ
-  edges.forEach(e => {
-    const pa = pos3d[e.source], pb = pos3d[e.target];
-    if (!pa || !pb) return;
-    const geo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(pa.x, pa.y, pa.z),
-      new THREE.Vector3(pb.x, pb.y, pb.z),
-    ]);
-    const mat = new THREE.LineBasicMaterial({ color: 0x3a4a6a, transparent: true, opacity: 0.3 });
-    const line = new THREE.Line(geo, mat);
-    line.userData = { source: e.source, target: e.target };
-    scene3d.add(line);
-    edgeLines3d.push(line);
-  });
-
-  // パーティクル背景
-  const starGeo = new THREE.BufferGeometry();
-  const sv = [];
-  for (let i = 0; i < 400; i++) sv.push((Math.random()-0.5)*800, (Math.random()-0.5)*800, (Math.random()-0.5)*800);
-  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(sv, 3));
-  scene3d.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x223355, size: 0.6 })));
-
-  setup3DInteraction();
-  animate3D();
-}
-
-// フォースシミュレーション
-function stepForce() {
-  const alpha = 0.3, repulse = 800, spring = 0.005, damp = 0.85, center = 0.01;
-  const ids = Object.keys(pos3d);
-  // 斥力
-  for (let i = 0; i < ids.length; i++) {
-    for (let j = i + 1; j < ids.length; j++) {
-      const a = pos3d[ids[i]], b = pos3d[ids[j]];
-      let dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-      let d2 = dx*dx + dy*dy + dz*dz;
-      if (d2 < 1) d2 = 1;
-      const f = repulse / d2;
-      const dist = Math.sqrt(d2);
-      dx /= dist; dy /= dist; dz /= dist;
-      a.vx += dx * f * alpha; a.vy += dy * f * alpha; a.vz += dz * f * alpha;
-      b.vx -= dx * f * alpha; b.vy -= dy * f * alpha; b.vz -= dz * f * alpha;
-    }
-  }
-  // 引力（エッジ）
-  edges.forEach(e => {
-    const a = pos3d[e.source], b = pos3d[e.target];
-    if (!a || !b) return;
-    const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
-    const f = spring * alpha;
-    a.vx += dx * f; a.vy += dy * f; a.vz += dz * f;
-    b.vx -= dx * f; b.vy -= dy * f; b.vz -= dz * f;
-  });
-  // 中心引力 + ダンピング
-  ids.forEach(id => {
-    const p = pos3d[id];
-    p.vx -= p.x * center; p.vy -= p.y * center; p.vz -= p.z * center;
-    p.vx *= damp; p.vy *= damp; p.vz *= damp;
-    p.x += p.vx; p.y += p.vy; p.z += p.vz;
-  });
-}
-
-function syncPositions() {
-  nodeMeshes3d.forEach(m => {
-    const p = pos3d[m.userData.id];
-    if (p) m.position.set(p.x, p.y, p.z);
-  });
-  nodeSprites3d.forEach(s => {
-    const p = pos3d[s.userData.nodeId];
-    const m = nodeMeshes3d.find(mm => mm.userData.id === s.userData.nodeId);
-    if (p && m) s.position.set(p.x, p.y + m.userData._size + 4, p.z);
-  });
-  glowSprites3d.forEach(g => {
-    const p = pos3d[g.userData.nodeId];
-    if (p) g.position.set(p.x, p.y, p.z);
-  });
-  // リング
-  scene3d.children.forEach(c => {
-    if (c.userData && c.userData._isRing) {
-      const p = pos3d[c.userData.nodeId];
-      if (p) c.position.set(p.x, p.y, p.z);
-    }
-  });
-  // エッジ更新
-  edgeLines3d.forEach(line => {
-    const pa = pos3d[line.userData.source], pb = pos3d[line.userData.target];
-    if (!pa || !pb) return;
-    const positions = line.geometry.attributes.position;
-    positions.setXYZ(0, pa.x, pa.y, pa.z);
-    positions.setXYZ(1, pb.x, pb.y, pb.z);
-    positions.needsUpdate = true;
-  });
-}
-
-function animate3D() {
-  requestAnimationFrame(animate3D);
-  time3d += 0.016;
-  if (forceEnabled) { stepForce(); syncPositions(); }
-
-  // 危険ノード発光アニメーション
-  const pulse = 0.15 * Math.sin(time3d * 3) + 0.15;
-  nodeMeshes3d.forEach(m => {
-    if (m.userData.score < 60) {
-      m.material.emissiveIntensity = m.userData._baseEmissive + pulse;
-    }
-  });
-  glowSprites3d.forEach(g => {
-    g.material.opacity = 0.4 + 0.3 * Math.sin(time3d * 2.5);
-  });
-
-  // リング回転
-  scene3d.children.forEach(c => {
-    if (c.userData && c.userData._isRing) c.rotation.z += 0.01;
-  });
-
-  controls3d.update();
-  renderer3d.render(scene3d, camera3d);
-}
-
-// ハイライトロジック
-function highlightNode(nodeId) {
-  selectedNodeId = nodeId;
-  const connected = adj3d[nodeId] || new Set();
-  nodeMeshes3d.forEach(m => {
-    const id = m.userData.id;
-    if (id === nodeId) {
-      m.material.opacity = 1.0;
-      m.material.emissiveIntensity = 0.6;
-    } else if (connected.has(id)) {
-      m.material.opacity = 0.85;
-      m.material.emissiveIntensity = 0.3;
-    } else {
-      m.material.opacity = 0.08;
-      m.material.emissiveIntensity = 0.02;
-    }
-  });
-  edgeLines3d.forEach(line => {
-    const s = line.userData.source, t = line.userData.target;
-    if (s === nodeId || t === nodeId) {
-      line.material.color.set(0x5ac8fa);
-      line.material.opacity = 0.8;
-    } else {
-      line.material.opacity = 0.03;
-    }
-  });
-  nodeSprites3d.forEach(s => {
-    const id = s.userData.nodeId;
-    s.material.opacity = (id === nodeId || connected.has(id)) ? 0.95 : 0.05;
-  });
-}
-
-function clearHighlight() {
-  selectedNodeId = null;
-  nodeMeshes3d.forEach(m => {
-    m.material.opacity = 0.9;
-    m.material.emissiveIntensity = m.userData._baseEmissive;
-  });
-  edgeLines3d.forEach(line => {
-    line.material.color.set(0x3a4a6a);
-    line.material.opacity = 0.3;
-  });
-  nodeSprites3d.forEach(s => { s.material.opacity = 0.9; });
-}
-
-function reset3DView() {
-  clearHighlight();
-  camera3d.position.set(0, 40, 280);
-  controls3d.target.set(0, 0, 0);
-}
-
-function toggle3DForce() {
-  forceEnabled = !forceEnabled;
-  document.getElementById('forceBtn3d').textContent = '物理: ' + (forceEnabled ? 'ON' : 'OFF');
-}
-
-function setup3DInteraction() {
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-  let hovered = null;
-  const tip = document.createElement('div');
-  tip.style.cssText = `position:fixed;display:none;background:rgba(8,8,26,0.94);
-    color:#fff;padding:14px 18px;border-radius:12px;font-size:13px;z-index:1000;
-    pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,0.5);
-    font-family:-apple-system,sans-serif;max-width:300px;backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,0.08)`;
-  document.body.appendChild(tip);
-
-  renderer3d.domElement.addEventListener('mousemove', (e) => {
-    const rect = renderer3d.domElement.getBoundingClientRect();
-    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(mouse, camera3d);
-    const intersects = raycaster.intersectObjects(nodeMeshes3d);
-
-    if (intersects.length > 0 && intersects[0].object.userData.label) {
-      const n = intersects[0].object.userData;
-      hovered = n;
-      const sc = n.score >= 80 ? '#34c759' : n.score >= 60 ? '#ff9500' : '#ff3b30';
-      const bar = Math.max(4, Math.min(100, n.score));
-      tip.innerHTML = `
-        <div style="font-weight:700;font-size:15px;margin-bottom:4px">${n.label}</div>
-        <div style="color:#a0aec0;font-size:11px;margin-bottom:8px">${n.file}:${n.line}</div>
-        <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;margin-bottom:10px">
-          <div style="width:${bar}%;height:100%;border-radius:6px;background:${sc}"></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:12px">
-          <span style="color:#a0aec0">スコア</span><span style="color:${sc};font-weight:700">${n.score}点</span>
-          <span style="color:#a0aec0">行数</span><span>${n.lines}行</span>
-          <span style="color:#a0aec0">複雑さ</span><span>${n.complexity}</span>
-          <span style="color:#a0aec0">認知的</span><span>${n.cognitive}</span>
-          <span style="color:#a0aec0">呼ばれる</span><span>${n.in_degree}回</span>
-          <span style="color:#a0aec0">影響範囲</span><span>${n.impact}関数</span>
-        </div>
-      `;
-      tip.style.display = 'block';
-      tip.style.left = (e.clientX + 16) + 'px';
-      tip.style.top = (e.clientY - 12) + 'px';
-      renderer3d.domElement.style.cursor = 'pointer';
-    } else {
-      hovered = null;
-      tip.style.display = 'none';
-      renderer3d.domElement.style.cursor = 'grab';
-    }
-  });
-
-  // シングルクリック → ハイライト
-  renderer3d.domElement.addEventListener('click', () => {
-    if (hovered) {
-      highlightNode(hovered.id);
-    }
-  });
-  // ダブルクリック → 解除
-  renderer3d.domElement.addEventListener('dblclick', () => {
-    clearHighlight();
-  });
-}
 </script>
+
 </body>
 </html>
