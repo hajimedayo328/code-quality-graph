@@ -775,7 +775,42 @@ def calc_graph_metrics(nodes: list[str], edges: list[tuple[str, str]]) -> dict:
 
     # 最も呼ばれている関数
     in_counts = {name: len(in_adj.get(name, set())) for name in nodes}
+    out_counts = {name: len(out_adj.get(name, set())) for name in nodes}
     most_called = max(in_counts.items(), key=lambda x: x[1]) if in_counts else ("", 0)
+
+    # Betweenness Centrality (Brandes algorithm)
+    bc = {v: 0.0 for v in nodes}
+    if n >= 3 and len(edges) > 0:
+        from collections import deque
+        for s in nodes:
+            S = []
+            P = {v: [] for v in nodes}
+            sigma = {v: 0 for v in nodes}
+            sigma[s] = 1
+            d = {v: -1 for v in nodes}
+            d[s] = 0
+            Q = deque([s])
+            while Q:
+                v = Q.popleft()
+                S.append(v)
+                for w in out_adj.get(v, set()):
+                    if d[w] < 0:
+                        Q.append(w)
+                        d[w] = d[v] + 1
+                    if d[w] == d[v] + 1:
+                        sigma[w] += sigma[v]
+                        P[w].append(v)
+            delta = {v: 0.0 for v in nodes}
+            while S:
+                w = S.pop()
+                for v in P[w]:
+                    delta[v] += (sigma[v] / sigma[w]) * (1 + delta[w]) if sigma[w] else 0
+                if w != s:
+                    bc[w] += delta[w]
+        # 正規化 (directed graph: (n-1)(n-2))
+        norm = (n - 1) * (n - 2)
+        if norm > 0:
+            bc = {k: round(v / norm, 5) for k, v in bc.items()}
 
     return {
         "density": round(density, 4),
@@ -783,6 +818,8 @@ def calc_graph_metrics(nodes: list[str], edges: list[tuple[str, str]]) -> dict:
         "avg_degree": round(sum(total_degree.values()) / n, 1) if n > 0 else 0,
         "pagerank": pr,
         "in_degree": in_counts,
+        "out_degree": out_counts,
+        "betweenness": bc,
         "most_called": most_called,
         "isolated": [name for name in nodes if total_degree[name] == 0],
     }

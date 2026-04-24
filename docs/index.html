@@ -123,6 +123,157 @@ tr:hover td { background: #f9f9fb; }
 .note-box { background: #f0f9ff; border: 1px solid #bee3f8; color: #2b6cb0; padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; }
 
 .empty { color: #86868b; padding: 20px; text-align: center; }
+
+/* ソース表示モーダル */
+.source-modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.source-modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+.source-modal-body { position: relative; background: #1d1d1f; color: #f5f5f7; width: min(820px, 92vw); max-height: 82vh; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.source-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #333; font-weight: 600; font-size: 14px; }
+.source-modal-close { background: none; border: none; color: #f5f5f7; font-size: 26px; cursor: pointer; padding: 0 6px; line-height: 1; }
+.source-modal-close:hover { color: #ff9500; }
+.source-modal-pre { margin: 0; padding: 14px 0; overflow: auto; flex: 1; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.7; }
+.source-modal-pre .line { display: block; padding: 0 20px; white-space: pre; }
+.source-modal-pre .line-num { color: #6e6e73; user-select: none; display: inline-block; width: 36px; text-align: right; margin-right: 14px; }
+.source-modal-pre .line.highlight { background: rgba(255,149,0,0.18); border-left: 3px solid #ff9500; padding-left: 17px; }
+
+/* 3Dグラフ背景（宇宙風） */
+#graph3d-container, #imports3d-container {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 50%, #0d0d24 0%, #050510 70%, #000 100%);
+  border-radius: 12px;
+}
+#graph3d-container.starfield .star, #imports3d-container.starfield .star {
+  position: absolute;
+  background: #ffffff;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  box-shadow: 0 0 4px rgba(180,210,255,0.8);
+  animation: twinkle 4s ease-in-out infinite;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* 3Dグラフのラベルオーバーレイ */
+.graph-label-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  overflow: hidden;
+}
+.node-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: nowrap;
+  font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, 'SF Mono', Menlo, monospace;
+  color: #f5f5f7;
+  background: rgba(0,0,0,0.75);
+  padding: 3px 7px;
+  border-radius: 4px;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  will-change: transform, opacity;
+  transition: opacity 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.node-label .kind-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+.node-label.kind-hub { background: rgba(60,40,0,0.9); border-color: #ffd54a; box-shadow: 0 0 10px rgba(255,213,74,0.6); }
+.node-label.kind-hub .kind-badge { background: #ffd54a; color: #4a2f00; }
+.node-label.kind-bridge { background: rgba(40,20,60,0.9); border-color: #b879ff; box-shadow: 0 0 10px rgba(184,121,255,0.5); }
+.node-label.kind-bridge .kind-badge { background: #b879ff; color: #2a0a50; }
+.node-label.kind-danger { background: rgba(60,10,10,0.9); border-color: #ff5b5b; box-shadow: 0 0 8px rgba(255,91,91,0.5); }
+.node-label.kind-danger .kind-badge { background: #ff5b5b; color: #3a0000; }
+.node-label.kind-isolated { background: rgba(25,25,30,0.7); border-color: #7c7c8a; color: #c0c0c8; }
+.node-label.kind-normal { background: rgba(10,20,40,0.8); }
+
+/* ノード情報パネル（クリック時のコメント表示） */
+.node-info-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 320px;
+  max-height: 70vh;
+  background: rgba(20,20,30,0.96);
+  color: #f5f5f7;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  z-index: 9998;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font: 12px/1.5 -apple-system, 'Hiragino Sans', sans-serif;
+  backdrop-filter: blur(8px);
+}
+.node-info-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 13px;
+}
+.node-info-close {
+  background: none;
+  border: none;
+  color: #f5f5f7;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+.node-info-close:hover { color: #ff9500; }
+.node-info-body {
+  padding: 12px 14px;
+  overflow-y: auto;
+  flex: 1;
+}
+.node-info-body > div { margin-bottom: 3px; }
+.node-info-actions {
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  gap: 8px;
+}
+.node-info-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  color: #f5f5f7;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.node-info-btn:hover { background: rgba(255,255,255,0.12); }
+.node-info-btn.primary { background: #0a84ff; border-color: #0a84ff; }
+.node-info-btn.primary:hover { background: #409cff; }
+
+/* グラフボックス(ダーク) */
+.graph-box { background: #000; border-radius: 12px; overflow: hidden; padding: 0; }
+
+/* 凡例拡張 */
+.legend .legend-dot.hub { background: #ffd54a; box-shadow: 0 0 8px rgba(255,213,74,0.7); }
+.legend .legend-dot.bridge { background: #b879ff; box-shadow: 0 0 8px rgba(184,121,255,0.7); }
+.legend .legend-dot.danger { background: #ff5b5b; }
+.legend .legend-dot.isolated { background: #7c7c8a; }
 </style>
 </head>
 <body>
@@ -234,34 +385,24 @@ def hello():
       </div>
 
       <div id="tab-graph" class="tab-content">
-        <div class="section-desc">丸 = 関数、線 = 呼び出し関係。大きい丸ほど多くの場所から使われている</div>
-        <div class="view-toggle">
-          <button class="view-btn active" data-view="2d" onclick="switchView('2d', 'graph')">2D</button>
-          <button class="view-btn" data-view="3d" onclick="switchView('3d', 'graph')">3D</button>
-        </div>
+        <div class="section-desc">丸 = 関数、線 = 呼び出し関係。大きい丸ほど重要度が高い。ホバーで詳細、クリックでソースへジャンプ</div>
         <div class="graph-box">
-          <div id="graph2d-container"></div>
-          <div id="graph3d-container" style="display:none"></div>
+          <div id="graph3d-container"></div>
         </div>
         <div class="legend">
-          <span><span class="legend-dot" style="background:#34c759"></span>スコア良好</span>
-          <span><span class="legend-dot" style="background:#ff9500"></span>要注意</span>
-          <span><span class="legend-dot" style="background:#ff3b30"></span>要改善</span>
-          <span><span class="legend-dot" style="background:#8e8e93"></span>孤立</span>
-          <span>丸が大きい = よく呼ばれる</span>
-          <span style="color:#007aff">💡 3Dモードはマウスドラッグで回転</span>
+          <span><span class="legend-dot hub"></span><b>HUB</b>（PageRank上位・呼ばれる中枢）</span>
+          <span><span class="legend-dot bridge"></span><b>BRIDGE</b>（媒介中心性・ボトルネック）</span>
+          <span><span class="legend-dot danger"></span>要改善（低スコア / セキュリティ）</span>
+          <span><span class="legend-dot isolated"></span>孤立（未使用）</span>
+          <span><span class="legend-dot" style="background:#4fc3f7"></span>通常</span>
+          <span style="color:#007aff;margin-top:4px">💡 左ドラッグ=回転 / 右ドラッグ=視点移動(パン) / ホイール=ズーム / ノードクリック=ソース表示</span>
         </div>
       </div>
 
       <div id="tab-imports" class="tab-content">
         <div class="section-desc">ファイル間のimport関係。循環依存があると危険</div>
-        <div class="view-toggle">
-          <button class="view-btn active" data-view="2d" onclick="switchView('2d', 'imports')">2D</button>
-          <button class="view-btn" data-view="3d" onclick="switchView('3d', 'imports')">3D</button>
-        </div>
         <div class="graph-box">
-          <div id="imports2d-container" style="height:400px"></div>
-          <div id="imports3d-container" style="height:400px; display:none"></div>
+          <div id="imports3d-container" style="height:400px"></div>
         </div>
       </div>
 
@@ -291,8 +432,7 @@ def hello():
 </div>
 
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/force-graph"></script>
-<script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1"></script>
+<script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1/dist/3d-force-graph.min.js"></script>
 
 <script>
 // ========== 状態管理 ==========
@@ -394,6 +534,7 @@ async function analyze() {
 
     setLoading('コードを解析中...', 'Pythonで実行中');
 
+    window.lastSource = code;
     pyodide.globals.set('user_code_input', code);
     await pyodide.runPythonAsync(`
 import json
@@ -427,9 +568,11 @@ function renderResults(result) {
   renderFiles(result.modules);
   renderFunctions(result.nodes);
 
-  // グラフは初期タブ時は非表示なので、タブクリック時に初期化
-  initGraph2D('graph2d-container', result.nodes, result.edges);
-  initImports2D('imports2d-container', result.modules, result.module_edges);
+  // 3Dグラフのみ描画（2Dは廃止）
+  graphs.graph3d = null;
+  graphs.imports3d = null;
+  initGraph3D('graph3d-container', result.nodes, result.edges);
+  initImports3D('imports3d-container', result.modules, result.module_edges);
 }
 
 function renderStats(s) {
@@ -578,7 +721,11 @@ function nodeColor(n) {
 }
 
 function nodeSize(n) {
-  return Math.max(4, 4 + n.in_degree * 1.5 + (n.pagerank || 0) * 200);
+  // 重要度ベース: 呼ばれる回数 + 問題の重さ + PageRank
+  const degree = (n.in_degree || 0) + (n.out_degree || 0);
+  const problemBonus = n.score < 80 ? (80 - n.score) * 0.4 : 0;
+  const pagerankBonus = (n.pagerank || 0) * 200;
+  return Math.max(4, 4 + degree * 1.5 + problemBonus + pagerankBonus);
 }
 
 function initGraph2D(containerId, nodes, edges) {
@@ -615,25 +762,225 @@ function initGraph2D(containerId, nodes, edges) {
   graphs.graph2d = graph;
 }
 
+// ノード分類: hub / bridge / danger / isolated / normal
+function classifyNodes(nodes) {
+  const byPR = [...nodes].sort((a, b) => (b.pagerank||0) - (a.pagerank||0));
+  const byBC = [...nodes].sort((a, b) => (b.betweenness||0) - (a.betweenness||0));
+  const topN = Math.max(1, Math.ceil(nodes.length * 0.2));
+  const hubIds = new Set(byPR.slice(0, topN).filter(n => (n.pagerank||0) > 0.05).map(n => n.id));
+  const bridgeIds = new Set(byBC.slice(0, topN).filter(n => (n.betweenness||0) > 0.001).map(n => n.id));
+  return nodes.map(n => {
+    let kind = 'normal';
+    if (n.is_isolated) kind = 'isolated';
+    else if (n.security > 0 || n.score < 60) kind = 'danger';
+    else if (hubIds.has(n.id)) kind = 'hub';
+    else if (bridgeIds.has(n.id)) kind = 'bridge';
+    return { ...n, kind };
+  });
+}
+
+// 分類に応じた色・サイズ
+const KIND_STYLE = {
+  hub:      { color: '#ffd54a', glow: '#ffb300', sizeBoost: 3.0, label: 'HUB' },
+  bridge:   { color: '#b879ff', glow: '#8a3fe0', sizeBoost: 2.0, label: 'BRIDGE' },
+  danger:   { color: '#ff5b5b', glow: '#ff3b30', sizeBoost: 1.8, label: 'DANGER' },
+  isolated: { color: '#7c7c8a', glow: '#5c5c6a', sizeBoost: 0.6, label: 'ISOLATED' },
+  normal:   { color: '#4fc3f7', glow: '#2196f3', sizeBoost: 1.0, label: '' },
+};
+
+function kindSize(n) {
+  const base = 3 + (n.in_degree||0)*1.0 + (n.out_degree||0)*0.5 + (n.pagerank||0)*150 + (n.betweenness||0)*40;
+  return base * (KIND_STYLE[n.kind] || KIND_STYLE.normal).sizeBoost;
+}
+function kindColor(n) {
+  // normal は score 色を優先
+  if (n.kind === 'normal') return nodeColor(n);
+  return KIND_STYLE[n.kind].color;
+}
+
 function initGraph3D(containerId, nodes, edges) {
   const el = document.getElementById(containerId);
   el.innerHTML = '';
+
+  const classified = classifyNodes(nodes);
   const graphData = {
-    nodes: nodes.map(n => ({ ...n, val: nodeSize(n), color: nodeColor(n) })),
+    nodes: classified.map(n => ({ ...n, val: kindSize(n), color: kindColor(n) })),
     links: edges.map(e => ({ source: e.source, target: e.target })),
   };
-  const graph = ForceGraph3D()(el)
+
+  // 3d-force-graph を先に初期化（controlType=orbit で直感的な操作に）
+  const labels = {};
+  const graph = ForceGraph3D({ controlType: 'orbit' })(el)
     .graphData(graphData)
-    .nodeLabel(n => `${n.label} (score ${n.score})`)
+    .nodeLabel(n => buildNodeTooltip(n))
     .nodeColor(n => n.color)
     .nodeVal(n => n.val)
-    .linkColor(() => 'rgba(200,200,255,0.2)')
-    .linkDirectionalArrowLength(3)
+    .nodeOpacity(0.92)
+    .nodeResolution(24)
+    .onNodeClick(node => showNodeInfo(node))
+    .onNodeHover(node => { el.style.cursor = node ? 'pointer' : 'grab'; })
+    .linkColor(l => {
+      // hub/bridge を通るエッジは明るく
+      const src = typeof l.source === 'object' ? l.source : null;
+      const tgt = typeof l.target === 'object' ? l.target : null;
+      if ((src && (src.kind === 'hub' || src.kind === 'bridge')) ||
+          (tgt && (tgt.kind === 'hub' || tgt.kind === 'bridge'))) {
+        return 'rgba(255,220,120,0.85)';
+      }
+      return 'rgba(120,180,255,0.5)';
+    })
+    .linkWidth(l => {
+      const src = typeof l.source === 'object' ? l.source : null;
+      const tgt = typeof l.target === 'object' ? l.target : null;
+      if ((src && src.kind === 'hub') || (tgt && tgt.kind === 'hub')) return 3;
+      if ((src && src.kind === 'bridge') || (tgt && tgt.kind === 'bridge')) return 2.2;
+      return 1.2;
+    })
+    .linkOpacity(0.8)
+    .linkDirectionalArrowLength(6)
     .linkDirectionalArrowRelPos(1)
-    .backgroundColor('#0a0a1a')
+    .linkDirectionalArrowColor(() => 'rgba(255,255,255,0.9)')
+    .linkDirectionalParticles(l => {
+      const src = typeof l.source === 'object' ? l.source : null;
+      const tgt = typeof l.target === 'object' ? l.target : null;
+      if ((src && src.kind === 'hub') || (tgt && tgt.kind === 'hub')) return 5;
+      if ((src && src.kind === 'bridge') || (tgt && tgt.kind === 'bridge')) return 3;
+      return 2;
+    })
+    .linkDirectionalParticleSpeed(0.012)
+    .linkDirectionalParticleWidth(2.5)
+    .linkDirectionalParticleColor(l => {
+      const src = typeof l.source === 'object' ? l.source : null;
+      if (src && src.kind === 'hub') return '#ffe066';
+      if (src && src.kind === 'bridge') return '#d2a6ff';
+      return '#66d9ff';
+    })
+    .backgroundColor('rgba(0,0,0,0)')
     .width(el.offsetWidth)
-    .height(600);
+    .height(600)
+    ;
+
+  // 3d-force-graph initializeの後にoverlayを追加（canvasの上に重ねる）
+  addCSSStarfield(el, 180);
+  const labelLayer = document.createElement('div');
+  labelLayer.className = 'graph-label-layer';
+  el.appendChild(labelLayer);
+  classified.forEach(n => {
+    const div = document.createElement('div');
+    div.className = 'node-label kind-' + n.kind;
+    const kindBadge = KIND_STYLE[n.kind].label ? `<span class="kind-badge">${KIND_STYLE[n.kind].label}</span>` : '';
+    div.innerHTML = `${kindBadge}<span class="name">${escapeHtml(n.label)}</span>`;
+    labelLayer.appendChild(div);
+    labels[n.id] = div;
+  });
+
+  // 毎フレームラベル位置更新（カメラ移動中も追随）
+  runLabelTracker(graph, labels, 'graph3d');
+
+  // コンテナサイズを graph に強制同期（canvasが勝手に伸びないよう固定）
+  syncGraphSize(graph, el);
+
+  setTimeout(() => graph.cameraPosition({ z: 320 }, null, 1200), 400);
   graphs.graph3d = graph;
+}
+
+function syncGraphSize(graph, el) {
+  const apply = () => {
+    const w = el.clientWidth || el.offsetWidth;
+    const h = el.clientHeight || el.offsetHeight || 600;
+    if (w > 0 && h > 0) graph.width(w).height(h);
+  };
+  apply();
+  // 初回描画後・タブ切り替え後にも再適用
+  requestAnimationFrame(apply);
+  setTimeout(apply, 100);
+  setTimeout(apply, 400);
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    // 以前のobserverが残ってたら念のため停止
+    if (el.__ro) el.__ro.disconnect();
+    el.__ro = ro;
+  }
+}
+
+function runLabelTracker(graph, labels, key) {
+  if (!window.__labelTrackers) window.__labelTrackers = {};
+  const trackerId = Symbol();
+  window.__labelTrackers[key] = trackerId;
+
+  // 各ノードIDに対応するメッシュをscene走査で収集
+  let meshById = null;
+  function collectMeshes() {
+    const map = {};
+    graph.scene().traverse(obj => {
+      if (obj.__data && labels[obj.__data.id] && !map[obj.__data.id]) {
+        map[obj.__data.id] = obj;
+      }
+    });
+    return map;
+  }
+
+  function tick() {
+    if (window.__labelTrackers[key] !== trackerId) return;
+    if (!meshById || Object.keys(meshById).length < Object.keys(labels).length) {
+      meshById = collectMeshes();
+    }
+    const cam = graph.camera();
+    Object.keys(labels).forEach(id => {
+      const lbl = labels[id];
+      const mesh = meshById[id];
+      if (!mesh) return;
+      const p = mesh.position;
+      const c = graph.graph2ScreenCoords(p.x, p.y, p.z);
+      const node = mesh.__data || {};
+      const radius = Math.cbrt(node.val || 4) * 4 + 6;
+      lbl.style.transform = `translate(-50%, -100%) translate(${c.x}px, ${c.y - radius}px)`;
+      const dx = p.x - cam.position.x, dy = p.y - cam.position.y, dz = p.z - cam.position.z;
+      const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      const opacity = Math.max(0.2, Math.min(1, 450 / dist));
+      lbl.style.opacity = opacity;
+    });
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function addCSSStarfield(container, count) {
+  container.classList.add('starfield');
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = (Math.random() * 100) + '%';
+    s.style.top  = (Math.random() * 100) + '%';
+    const size = Math.random() * 2 + 0.5;
+    s.style.width = s.style.height = size + 'px';
+    s.style.opacity = (0.3 + Math.random() * 0.7).toFixed(2);
+    s.style.animationDelay = (Math.random() * 6) + 's';
+    s.style.animationDuration = (3 + Math.random() * 4) + 's';
+    container.appendChild(s);
+  }
+}
+
+function buildNodeTooltip(n) {
+  const endLine = n.line && n.lines ? n.line + n.lines - 1 : n.line;
+  const lines = [];
+  const kindLabel = { hub: '🟡 HUB（中枢）', bridge: '🟣 BRIDGE（媒介）', danger: '🔴 要改善', isolated: '⚫ 孤立', normal: '' };
+  if (n.kind && kindLabel[n.kind]) {
+    lines.push(`<div style="font-size:11px;color:#ffd54a;margin-bottom:2px">${kindLabel[n.kind]}</div>`);
+  }
+  lines.push(`<div style="font-weight:600;font-size:13px;margin-bottom:4px">${escapeHtml(n.label)}</div>`);
+  lines.push(`<div>📊 スコア: <b>${n.score}</b> / 100</div>`);
+  lines.push(`<div>📞 in: ${n.in_degree || 0} / out: ${n.out_degree || 0}</div>`);
+  if (n.pagerank) lines.push(`<div>⭐ PageRank: ${(n.pagerank*100).toFixed(2)}%</div>`);
+  if (n.betweenness) lines.push(`<div>🌉 媒介性: ${(n.betweenness*100).toFixed(2)}%</div>`);
+  if (n.line) lines.push(`<div>📏 ${n.lines || 0}行 (L${n.line}-${endLine})</div>`);
+  if (n.cognitive > 10) lines.push(`<div style="color:#ff9500">🧠 認知的複雑度: ${n.cognitive}（高い）</div>`);
+  if (n.security > 0) lines.push(`<div style="color:#ff3b30">🔒 セキュリティ問題: ${n.security}件</div>`);
+  if (n.impact > 0) lines.push(`<div>💥 変更影響範囲: ${n.impact}関数</div>`);
+  if (n.is_isolated) lines.push(`<div style="color:#8e8e93">⚠️ 孤立（未使用）</div>`);
+  lines.push(`<div style="margin-top:6px;color:#7ab8ff;font-size:11px">クリックでソース表示</div>`);
+  return lines.join('');
 }
 
 function initImports2D(containerId, modules, moduleEdges) {
@@ -670,22 +1017,55 @@ function initImports3D(containerId, modules, moduleEdges) {
     el.innerHTML = '<p class="empty" style="color:#ccc">単一ファイルのためimport関係はありません</p>';
     return;
   }
+
   const graphData = {
     nodes: modules.map(m => ({
-      id: m.name, label: m.name.split('.').pop(),
+      id: m.name,
+      label: m.name.split('.').pop(),
       val: Math.max(6, m.lines / 50),
       color: m.score >= 80 ? '#34c759' : m.score >= 60 ? '#ff9500' : '#ff3b30',
     })),
     links: (moduleEdges || []).map(e => ({ source: e.source, target: e.target })),
   };
-  const graph = ForceGraph3D()(el)
+
+  const labels = {};
+  const graph = ForceGraph3D({ controlType: 'orbit' })(el)
     .graphData(graphData)
-    .nodeLabel(n => n.label)
+    .nodeLabel(n => `<div style="font-weight:600">${escapeHtml(n.label)}</div>`)
     .nodeColor(n => n.color)
     .nodeVal(n => n.val)
-    .backgroundColor('#0a0a1a')
+    .nodeOpacity(0.92)
+    .nodeResolution(24)
+    .linkColor(() => 'rgba(160,220,255,0.7)')
+    .linkWidth(2)
+    .linkOpacity(0.85)
+    .linkDirectionalArrowLength(6)
+    .linkDirectionalArrowRelPos(1)
+    .linkDirectionalParticles(3)
+    .linkDirectionalParticleSpeed(0.012)
+    .linkDirectionalParticleWidth(2.5)
+    .linkDirectionalParticleColor(() => '#66d9ff')
+    .backgroundColor('rgba(0,0,0,0)')
     .width(el.offsetWidth)
-    .height(400);
+    .height(400)
+    ;
+
+  addCSSStarfield(el, 120);
+  const labelLayer = document.createElement('div');
+  labelLayer.className = 'graph-label-layer';
+  el.appendChild(labelLayer);
+  graphData.nodes.forEach(n => {
+    const div = document.createElement('div');
+    div.className = 'node-label';
+    div.innerHTML = `<span class="name">${escapeHtml(n.label)}</span>`;
+    labelLayer.appendChild(div);
+    labels[n.id] = div;
+  });
+
+  runLabelTracker(graph, labels, 'imports3d');
+  syncGraphSize(graph, el);
+
+  setTimeout(() => graph.cameraPosition({ z: 260 }, null, 1200), 400);
   graphs.imports3d = graph;
 }
 
@@ -700,13 +1080,13 @@ document.querySelectorAll('.tab').forEach(btn => {
     document.getElementById('tab-' + tabName).classList.add('active');
 
     // グラフタブの場合、サイズを再計算
-    if (tabName === 'graph' && graphs.graph2d) {
-      const el = document.getElementById('graph2d-container');
-      if (el.offsetWidth) graphs.graph2d.width(el.offsetWidth);
+    if (tabName === 'graph' && graphs.graph3d) {
+      const el = document.getElementById('graph3d-container');
+      if (el.offsetWidth) graphs.graph3d.width(el.offsetWidth);
     }
-    if (tabName === 'imports' && graphs.imports2d) {
-      const el = document.getElementById('imports2d-container');
-      if (el.offsetWidth) graphs.imports2d.width(el.offsetWidth);
+    if (tabName === 'imports' && graphs.imports3d) {
+      const el = document.getElementById('imports3d-container');
+      if (el.offsetWidth) graphs.imports3d.width(el.offsetWidth);
     }
   });
 });
@@ -749,6 +1129,59 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+// ========== ソース表示モーダル ==========
+
+function showSourceModal(node) {
+  if (!window.lastSource) return;
+  const src = window.lastSource;
+  const lines = src.split('\n');
+  const startLine = Math.max(1, node.line || 1);
+  const endLine = node.lines ? startLine + node.lines - 1 : startLine;
+
+  const titleEl = document.getElementById('sourceModalTitle');
+  const codeEl = document.getElementById('sourceModalCode');
+  titleEl.innerHTML = `<span style="font-family:'SF Mono',Menlo,monospace">${escapeHtml(node.label)}</span> <span style="color:#8e8e93;font-weight:400;font-size:12px">L${startLine}-${endLine} / score ${node.score}</span>`;
+
+  codeEl.innerHTML = lines.map((line, i) => {
+    const lineNum = i + 1;
+    const isTarget = lineNum >= startLine && lineNum <= endLine;
+    const cls = 'line' + (isTarget ? ' highlight' : '');
+    return `<span class="${cls}"><span class="line-num">${lineNum}</span>${escapeHtml(line)}</span>`;
+  }).join('');
+
+  document.getElementById('sourceModal').style.display = 'flex';
+  setTimeout(() => {
+    const first = codeEl.querySelector('.line.highlight');
+    if (first) first.scrollIntoView({ block: 'center' });
+  }, 50);
+}
+
+function closeSourceModal() {
+  document.getElementById('sourceModal').style.display = 'none';
+}
+
+// ========== ノード情報パネル ==========
+
+let currentInfoNode = null;
+function showNodeInfo(node) {
+  currentInfoNode = node;
+  const panel = document.getElementById('nodeInfoPanel');
+  const body = document.getElementById('nodeInfoBody');
+  body.innerHTML = buildNodeTooltip(node);
+  panel.style.display = 'block';
+}
+function closeNodeInfo() {
+  document.getElementById('nodeInfoPanel').style.display = 'none';
+  currentInfoNode = null;
+}
+function openSourceFromInfo() {
+  if (currentInfoNode) showSourceModal(currentInfoNode);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeSourceModal(); closeNodeInfo(); }
+});
+
 // 初回ロード時にPyodideを事前起動（UX向上）
 window.addEventListener('load', () => {
   // 遅延起動（ユーザーがサンプル読むのを待たせない）
@@ -764,6 +1197,29 @@ window.addEventListener('load', () => {
   }, 500);
 });
 </script>
+
+<div id="nodeInfoPanel" class="node-info-panel" style="display:none">
+  <div class="node-info-header">
+    <span>ノード情報</span>
+    <button class="node-info-close" onclick="closeNodeInfo()" aria-label="閉じる">×</button>
+  </div>
+  <div id="nodeInfoBody" class="node-info-body"></div>
+  <div class="node-info-actions">
+    <button class="node-info-btn primary" onclick="openSourceFromInfo()">📄 ソースを表示</button>
+    <button class="node-info-btn" onclick="closeNodeInfo()">閉じる</button>
+  </div>
+</div>
+
+<div id="sourceModal" class="source-modal" style="display:none">
+  <div class="source-modal-overlay" onclick="closeSourceModal()"></div>
+  <div class="source-modal-body">
+    <div class="source-modal-header">
+      <div id="sourceModalTitle">関数ソース</div>
+      <button class="source-modal-close" onclick="closeSourceModal()" aria-label="閉じる">×</button>
+    </div>
+    <pre class="source-modal-pre"><code id="sourceModalCode"></code></pre>
+  </div>
+</div>
 
 </body>
 </html>

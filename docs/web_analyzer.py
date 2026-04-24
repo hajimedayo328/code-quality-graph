@@ -95,6 +95,8 @@ def _run_analysis(workdir: str) -> dict:
         module = qname.rsplit(".", 1)[0] if "." in qname else ""
         pr = call_metrics.get("pagerank", {}).get(qname, 0)
         in_deg = call_metrics.get("in_degree", {}).get(qname, 0)
+        out_deg = call_metrics.get("out_degree", {}).get(qname, 0)
+        bc = call_metrics.get("betweenness", {}).get(qname, 0)
         nodes_json.append({
             "id": qname,
             "label": func.name,
@@ -107,6 +109,8 @@ def _run_analysis(workdir: str) -> dict:
             "score": func_scores.get(qname, 100),
             "pagerank": round(pr, 5),
             "in_degree": in_deg,
+            "out_degree": out_deg,
+            "betweenness": bc,
             "impact": impact["functions"].get(qname, {}).get("affected_functions", 0),
             "is_isolated": qname in call_metrics.get("isolated", []),
             "debt_min": func.tech_debt_minutes,
