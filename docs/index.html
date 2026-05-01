@@ -4011,11 +4011,18 @@ function renderInspectorContent(node) {
   const llmHtml = (typeof renderLLMSectionForNode === 'function')
     ? renderLLMSectionForNode(node) : '';
 
-  // Phase E: 意図メモ（ユーザーが書ける、LLM プロンプトに渡される）
+  // Phase E: 意図メモ（書いた瞬間 localStorage に自動保存。LLMタスク実行時に自動投入）
   const intentText = (typeof getIntent === 'function') ? getIntent(node.id) : '';
+  const llmReady = (typeof _llmReady !== 'undefined') && _llmReady;
+  const headerText = llmReady
+    ? '📝 この関数の意図（LLM ON）'
+    : '📝 この関数の意図（LLM OFF：単なるメモとして保存される）';
+  const helpText = llmReady
+    ? `<b>書く → 自動保存 → LLM分析タブの「🔍 意味バグ検出」等を押すと自動でLLMに渡される</b>。Inspector内には送信ボタン無し。`
+    : `今は LLM OFF のため、書いた内容は <b>localStorage に保存されるだけ</b>。LLM を ON にして「🔍 意味バグ検出」等を実行すると、保存済み意図がプロンプトに自動投入される。`;
   const intentHtml = `
-    <div class="inspector-section llm-section">
-      <div class="inspector-section-title">📝 この関数の意図（LLMに渡されます）</div>
+    <div class="inspector-section llm-section" style="${llmReady ? '' : 'opacity:0.7'}">
+      <div class="inspector-section-title">${headerText}</div>
       <textarea
         class="intent-input"
         data-node-id="${escapeAttr(node.id)}"
@@ -4023,8 +4030,10 @@ function renderInspectorContent(node) {
         oninput="onIntentInput(this)"
         style="width:100%;min-height:60px;background:rgba(255,255,255,0.05);color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 10px;font-family:inherit;font-size:12px;line-height:1.4;resize:vertical"
       >${escapeHtml(intentText)}</textarea>
-      <div style="font-size:10px;color:#888;margin-top:4px">
-        書くと LLM が「実装と意図の食い違い」を検出しやすくなる。doctestがあれば自動的に意図として扱われる。
+      <div style="font-size:10px;color:#888;margin-top:4px;line-height:1.5">
+        💡 保存タイミング: <b>入力中に自動</b>（保存ボタン不要、ページリロードしても残る）<br>
+        🚀 送信タイミング: ${helpText}<br>
+        💡 doctest が関数にあれば自動的に意図として扱われるため、意図メモは省略可。
       </div>
     </div>
   `;
