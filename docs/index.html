@@ -972,7 +972,25 @@ ZeroDivisionError: division by zero"></textarea>
           <span class="llm-status" id="llmTabStatus">未初期化</span>
           <button class="btn" type="button" onclick="clearLLMCache()" style="margin-left:auto" title="ダウンロード済みモデルをブラウザキャッシュから削除（ディスク容量を解放）">🗑 キャッシュ削除</button>
         </div>
+
+        <!-- プロジェクト全体の意図メモ（全タスクのプロンプトに自動投入） -->
+        <div class="evo-info" style="background:#fff8e1;border-color:#ffe082;color:#1d1d1f">
+          <div style="font-weight:700;margin-bottom:6px">📋 プロジェクト全体の目的（全LLMタスクに必ず投入されます）</div>
+          <textarea
+            id="projectIntent"
+            placeholder="例: 「タスク管理ツール。ユーザーがタスクをCRUDし、優先度・締切で並べ替えできることが目標。CLIインターフェース。」"
+            oninput="onProjectIntentInput(this)"
+            style="width:100%;min-height:60px;padding:8px 10px;border:1px solid #d2d2d7;border-radius:8px;font-family:inherit;font-size:13px;line-height:1.5;resize:vertical;background:#fff;color:#1d1d1f"
+          ></textarea>
+          <div style="font-size:11px;color:#86868b;margin-top:4px">
+            これを書くと「個別関数 vs プロジェクト全体の目的」の整合性を判定できます。空でも動きますが精度大幅低下。
+          </div>
+        </div>
         <div class="llm-task-grid">
+          <div class="llm-task-card" id="llmTaskProject" onclick="runLLMTaskProject()" style="grid-column: 1 / -1; background:#fff8e1; border-color:#ffe082">
+            <div class="task-title">🌐 プロジェクト整合性判定（最重要）</div>
+            <div class="task-desc">上の「📋 プロジェクト全体の目的」と各関数の役割を照合。「目的に貢献してる関数」「無関係な関数」「足りない処理」を一覧で出す。関数単体じゃなく<b>森を見る</b>。</div>
+          </div>
           <div class="llm-task-card" id="llmTaskBugs" onclick="runLLMTaskBugs()">
             <div class="task-title">🔍 意味的バグ検出</div>
             <div class="task-desc">コンパイルは通るが「論理が逆」「境界値ミス」「意図と違う動き」を発見</div>
@@ -2190,13 +2208,28 @@ function setLLMUiState(state, progressText) {
 }
 
 function setLLMTaskCardsEnabled(enabled) {
-  ['llmTaskBugs', 'llmTaskSmells', 'llmTaskRedundant', 'llmTaskRefactor', 'llmTaskExplain'].forEach(id => {
+  ['llmTaskProject', 'llmTaskBugs', 'llmTaskSmells', 'llmTaskRedundant', 'llmTaskRefactor', 'llmTaskExplain'].forEach(id => {
     const c = document.getElementById(id);
     if (!c) return;
     if (enabled) c.classList.remove('disabled');
     else c.classList.add('disabled');
   });
 }
+
+// プロジェクト全体の意図メモ（localStorage 永続）
+const PROJECT_INTENT_KEY = 'cqg_project_intent_v1';
+function getProjectIntent() {
+  try { return localStorage.getItem(PROJECT_INTENT_KEY) || ''; } catch (e) { return ''; }
+}
+function onProjectIntentInput(el) {
+  try { localStorage.setItem(PROJECT_INTENT_KEY, el.value); } catch (e) { /* ignore */ }
+}
+
+// 起動時に保存値を復元
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('projectIntent');
+  if (el) el.value = getProjectIntent();
+});
 
 async function initLLM(modelId) {
   setLLMUiState('loading', 'モジュール読込');
@@ -2250,15 +2283,57 @@ async function clearLLMCache() {
 
 async function llmAsk(systemPrompt, userPrompt, opts = {}) {
   if (!_llmEngine || !_llmReady) throw new Error('LLM未初期化');
+  // 言語固定 + 出力フォーマットを強く制約してループ生成を防ぐ
+  const finalSystem = systemPrompt +
+    '\n\n【厳守】回答はすべて日本語で。指定の形式以外の文章を生成しない。' +
+    '同じ文を繰り返さない。各キーは1回だけ書く。' +
+    '回答は最大8行で完結させる。';
   const reply = await _llmEngine.chat.completions.create({
     messages: [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: finalSystem },
       { role: 'user', content: userPrompt },
     ],
-    temperature: opts.temperature ?? 0.2,
-    max_tokens: opts.max_tokens ?? 320,
+    temperature: opts.temperature ?? 0.5,         // 0.2→0.5: ループ脱出しやすく
+    top_p: opts.top_p ?? 0.9,
+    max_tokens: opts.max_tokens ?? 200,           // 320→200: 過剰生成を抑制
+    frequency_penalty: opts.frequency_penalty ?? 1.3,  // 同じ語の繰り返しを強く抑制
+    presence_penalty: opts.presence_penalty ?? 0.6,    // 新しい話題への誘導
   });
-  return reply.choices?.[0]?.message?.content?.trim() ?? '';
+  let text = reply.choices?.[0]?.message?.content?.trim() ?? '';
+  // 念のため degeneration 検出: 同じ短い行が3回以上繰り返されたら以降を切る
+  text = _truncateLLMRepetition(text);
+  return text;
+}
+
+// 同じ行や同じフレーズが3回以上連続したら以降を切り捨てる（ループ生成対策）
+function _truncateLLMRepetition(text) {
+  if (!text) return text;
+  const lines = text.split('\n');
+  const out = [];
+  let lastLine = null;
+  let repeat = 0;
+  for (const l of lines) {
+    if (l.trim() === lastLine?.trim()) {
+      repeat++;
+      if (repeat >= 2) break;
+    } else {
+      repeat = 0;
+      lastLine = l;
+    }
+    out.push(l);
+  }
+  // 同一フレーズが本文中で >= 4回出現したら早めに打ち切る
+  const joined = out.join('\n');
+  const phraseCount = {};
+  for (const m of joined.matchAll(/[、。\s]([^、。\n]{8,30})[、。]/g)) {
+    const k = m[1];
+    phraseCount[k] = (phraseCount[k] || 0) + 1;
+    if (phraseCount[k] >= 4) {
+      const idx = joined.indexOf(k);
+      return joined.slice(0, idx + k.length) + '\n…(繰り返しを切断)';
+    }
+  }
+  return joined;
 }
 
 // === タスク 1: 意味的バグ検出（強化版：バグ分類＋確信度＋クロスコンテキスト） ===
@@ -2326,6 +2401,83 @@ bug_class: <上記から1つ>
 point: 1〜2文の要点
 reason: 該当箇所の引用
 日本語で簡潔に。`);
+}
+
+// === プロジェクト整合性判定（全関数を「目次」化して1リクエストで判定） ===
+async function runLLMTaskProject() {
+  if (!_llmReady || !currentResult) return;
+  const projectIntent = getProjectIntent().trim();
+  if (!projectIntent) {
+    alert('上の「📋 プロジェクト全体の目的」欄を先に書いてください。\n\n例: 「タスク管理ツール。CRUD・優先度ソート・締切ソート」\n\nこれが無いと「目的との整合性」を判定できません。');
+    return;
+  }
+
+  setLLMTaskCardsEnabled(false);
+  const status = document.getElementById('llmTabStatus');
+  const resultsEl = document.getElementById('llmResults');
+  const progressEl = document.getElementById('llmRunProgress');
+  const progressFill = document.getElementById('llmRunProgressFill');
+  resultsEl.innerHTML = '';
+  progressEl.style.display = 'block';
+  progressFill.style.width = '20%';
+  status.textContent = 'プロジェクト整合性判定 実行中...';
+
+  try {
+    // 全関数のサマリー（目次）を作る
+    const nodes = currentResult.nodes || [];
+    const summary = nodes.map(n => {
+      const docFlag = n.docstring ? '📖' : '';
+      const role = n.is_entry ? '[entry]' : n.func_type === 'method' ? '[method]' : n.func_type === 'async' ? '[async]' : '';
+      return `- ${n.label}(${n.n_args || 0}args) @${n.file}:${n.line} ${role}${docFlag} score=${n.score} lines=${n.lines}`;
+    }).join('\n');
+
+    const systemPrompt = `あなたはシニアアーキテクト。プロジェクトの目的と実装の整合性を判定する。
+以下の形式で必ず回答（厳守、繰り返し禁止）:
+
+==SUMMARY==
+判定: ALIGNED / PARTIAL / MISALIGNED
+要点: 1〜2文で全体評価
+
+==CONTRIBUTING==（目的に貢献している関数、最大5個）
+- 関数名: 一言で寄与説明
+
+==SUSPICIOUS==（目的と無関係/逆効果に見える関数、最大5個）
+- 関数名: なぜ怪しいか
+
+==MISSING==（目的達成に必要だが見当たらない処理、最大3個）
+- 機能名: なぜ必要か
+
+日本語で簡潔に。同じ文を繰り返さない。`;
+
+    const userPrompt = `【プロジェクトの目的】\n${projectIntent}\n\n【実装されている関数の一覧（${nodes.length}個）】\n${summary}\n\nこの関数群はプロジェクトの目的を達成しているか判定してください。`;
+    const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: 600, temperature: 0.4 });
+
+    // 結果カード（プロジェクト整合性は1枚の大きいカード）
+    const card = document.createElement('div');
+    const verdict = (reply.match(/判定[:：]\s*([A-Z_]+)/) || [])[1] || 'PARTIAL';
+    const sev = verdict === 'MISALIGNED' ? 'bad' : verdict === 'PARTIAL' ? 'warn' : 'good';
+    card.className = 'llm-result-card ' + sev;
+    card.dataset.priority = 100;
+    card.innerHTML = `
+      <div class="header">
+        <span class="target">🌐 プロジェクト整合性判定</span>
+        <span class="severity-badge ${sev}">${escapeHtml(verdict)}</span>
+        <span style="font-size:11px;color:#86868b">${nodes.length} 関数を一括分析</span>
+      </div>
+      <div class="verdict" style="white-space:pre-wrap;font-family:'SF Mono',Menlo,monospace;font-size:12px;line-height:1.6;background:#fafafa;padding:10px 12px;border-radius:8px;margin-top:6px">${escapeHtml(reply)}</div>
+    `;
+    resultsEl.appendChild(card);
+
+    progressFill.style.width = '100%';
+    status.textContent = 'プロジェクト整合性判定 完了';
+  } catch (e) {
+    console.error(e);
+    resultsEl.innerHTML = `<div class="llm-result-card bad"><div class="header"><span class="target">エラー</span></div><div class="verdict">${escapeHtml(e.message)}</div></div>`;
+    status.textContent = 'エラーが発生しました';
+  } finally {
+    setLLMTaskCardsEnabled(true);
+    setTimeout(() => { progressEl.style.display = 'none'; }, 1000);
+  }
 }
 
 async function runLLMTaskRedundant() {
@@ -2441,11 +2593,18 @@ async function runLLMOverFunctions(taskKey, taskLabel, systemPrompt, filterFn) {
   setTimeout(() => { progressEl.style.display = 'none'; }, 1000);
 }
 
-// LLM に渡すコンテキストを組み立て：意図 / doctest / 呼び出し元・先 / テスト失敗 / グラフ異常
+// LLM に渡すコンテキストを組み立て：プロジェクト意図 / 関数意図 / doctest / 呼び出し元・先 / テスト失敗 / グラフ異常
 function buildLLMPromptForNode(node, src) {
   const sections = [];
-  sections.push(`関数: ${node.label} (${node.file}:${node.line})`);
-  sections.push(`\nコード:\n\`\`\`python\n${src}\n\`\`\``);
+
+  // ★ プロジェクト全体の目的（最優先・全関数判定の基盤）
+  const projectIntent = getProjectIntent();
+  if (projectIntent.trim()) {
+    sections.push(`【★プロジェクト全体の目的（最重要）】\n${projectIntent.trim()}\n→ この関数がこの目的に貢献しているか/反していないか必ず判定すること`);
+  }
+
+  sections.push(`\n関数: ${node.label} (${node.file}:${node.line})`);
+  sections.push(`コード:\n\`\`\`python\n${src}\n\`\`\``);
 
   // 期待挙動: ユーザー意図メモ
   const intent = getIntent(node.id);
@@ -2493,8 +2652,8 @@ function buildLLMPromptForNode(node, src) {
   sections.push(`\n【メトリクス】行数=${node.lines || 0}, 複雑度=${node.complexity || 0}, 認知=${node.cognitive || 0}, ネスト=${node.max_nest_depth || 0}, 引数=${node.n_args || 0}`);
 
   // 期待挙動が一切なければ、その旨を伝える
-  if (!intent && !doctestsBlock && failedTests.length === 0) {
-    sections.push(`\n【期待挙動】明示無し。関数名/docstringから推測。意図不明なら verdict=SUSPICIOUS, reason に「意図メモ or doctest 追加を」`);
+  if (!intent && !doctestsBlock && failedTests.length === 0 && !projectIntent.trim()) {
+    sections.push(`\n【期待挙動】明示無し（プロジェクト目的・意図メモ・doctest 全部なし）。関数単体での断定は危険。verdict=SUSPICIOUS, reason に「プロジェクト目的 or 意図メモ追加を」と書く。BUG断定は避ける。`);
   }
 
   return sections.join('\n');
