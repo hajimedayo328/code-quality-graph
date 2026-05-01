@@ -55,6 +55,11 @@ class FunctionInfo:
     source_hash: str = ""
     security_issues: list[str] = field(default_factory=list)
     tech_debt_minutes: int = 0    # 技術的負債（修正コスト分）
+    # ===== Tier 1 (IDE化) =====
+    func_type: str = "function"   # function / method / async / entry / generator
+    is_entry: bool = False        # main / if __name__ == "__main__" 内呼び出し
+    decorators: list[str] = field(default_factory=list)  # @staticmethod 等
+    is_generator: bool = False    # yield を含む
 
 
 @dataclass
@@ -117,6 +122,22 @@ class CodeAnalyzer:
                     if isinstance(target, ast.Name):
                         mod.global_vars.append(target.id)
 
+        # `if __name__ == "__main__":` ブロックから呼ばれる関数名を集める（entry検出用）
+        main_block_calls: set[str] = set()
+        for top in ast.iter_child_nodes(tree):
+            if isinstance(top, ast.If) and isinstance(top.test, ast.Compare):
+                left = top.test.left
+                comps = top.test.comparators
+                if (isinstance(left, ast.Name) and left.id == "__name__"
+                        and len(comps) == 1
+                        and isinstance(comps[0], ast.Constant)
+                        and comps[0].value == "__main__"):
+                    for sub in ast.walk(top):
+                        if isinstance(sub, ast.Call):
+                            cn = self._get_call_name(sub)
+                            if cn:
+                                main_block_calls.add(cn)
+
         # functions
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -158,6 +179,38 @@ class CodeAnalyzer:
                 # 技術的負債（分単位の修正コスト推定）
                 debt = _estimate_tech_debt(end_line - node.lineno + 1, complexity, cog_complexity, len(sec_issues))
 
+                # ===== Tier 1: 種別判定 =====
+                decorators = []
+                for d in (node.decorator_list or []):
+                    if isinstance(d, ast.Name):
+                        decorators.append(d.id)
+                    elif isinstance(d, ast.Attribute):
+                        decorators.append(d.attr)
+                    elif isinstance(d, ast.Call):
+                        if isinstance(d.func, ast.Name):
+                            decorators.append(d.func.id)
+                        elif isinstance(d.func, ast.Attribute):
+                            decorators.append(d.func.attr)
+
+                is_async = isinstance(node, ast.AsyncFunctionDef)
+                is_method = bool(class_name)
+                is_generator = any(
+                    isinstance(c, (ast.Yield, ast.YieldFrom)) for c in ast.walk(node)
+                )
+                is_entry = (node.name == "main") or (node.name in main_block_calls)
+
+                # 優先順位: entry > async > generator > method > function
+                if is_entry:
+                    func_type = "entry"
+                elif is_async:
+                    func_type = "async"
+                elif is_generator:
+                    func_type = "generator"
+                elif is_method:
+                    func_type = "method"
+                else:
+                    func_type = "function"
+
                 func = FunctionInfo(
                     name=node.name, qualified_name=qname,
                     file=str(rel_path), line=node.lineno,
@@ -171,6 +224,10 @@ class CodeAnalyzer:
                     source_hash=source_hash,
                     security_issues=sec_issues,
                     tech_debt_minutes=debt,
+                    func_type=func_type,
+                    is_entry=is_entry,
+                    decorators=decorators,
+                    is_generator=is_generator,
                 )
                 self.functions[qname] = func
                 mod.functions.append(qname)

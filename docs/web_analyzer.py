@@ -115,9 +115,23 @@ def _run_analysis(workdir: str) -> dict:
             "is_isolated": qname in call_metrics.get("isolated", []),
             "debt_min": func.tech_debt_minutes,
             "security": len(func.security_issues),
+            # ===== Tier 1 (IDE化) =====
+            "func_type": getattr(func, "func_type", "function"),
+            "is_entry": getattr(func, "is_entry", False),
+            "decorators": getattr(func, "decorators", []),
+            "is_generator": getattr(func, "is_generator", False),
+            "n_args": func.n_args,
+            "is_private": func.is_private,
+            "docstring": func.docstring,
         })
 
-    edges_json = [{"source": s, "target": t} for s, t in call_edges]
+    # エッジ重み = 同じ caller→callee ペアの呼び出し回数
+    from collections import Counter
+    edge_counts = Counter(call_edges)
+    edges_json = [
+        {"source": s, "target": t, "weight": edge_counts[(s, t)]}
+        for (s, t) in edge_counts.keys()
+    ]
     module_edges_json = [{"source": s, "target": t} for s, t in import_edges]
 
     modules_json = []
@@ -172,3 +186,172 @@ def _run_analysis(workdir: str) -> dict:
 def analyze_json(code: str) -> str:
     """JSON文字列を返す便利ラッパー."""
     return json.dumps(analyze_single_file(code), ensure_ascii=False, default=str)
+
+
+# ========== Phase C: doctest実行 + 関数呼び出しトレース ==========
+
+import sys
+import io
+import ast
+import re
+import doctest as _doctest_mod
+from contextlib import redirect_stdout
+
+
+def _extract_user_funcs(files: dict[str, str]) -> set[str]:
+    """ファイル群からユーザー定義関数名を抽出（settrace のフィルタ用）."""
+    funcs = set()
+    for code in files.values():
+        try:
+            tree = ast.parse(code)
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    funcs.add(node.name)
+        except SyntaxError:
+            # ASTでパースできなければ正規表現フォールバック
+            for m in re.finditer(r"^\s*def\s+(\w+)", code, re.MULTILINE):
+                funcs.add(m.group(1))
+    return funcs
+
+
+def _build_namespace(files: dict[str, str]) -> tuple[dict, list[str]]:
+    """全ファイルを単一の名前空間で実行し、エラーがあれば収集."""
+    namespace: dict = {"__name__": "__main__"}
+    errors: list[str] = []
+    for fname, code in files.items():
+        try:
+            exec(compile(code, fname, "exec"), namespace)
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"{fname}: {type(e).__name__}: {e}")
+    return namespace, errors
+
+
+def _collect_tests(files: dict[str, str], extra_tests: str = "") -> list[dict]:
+    """各ファイル内のdoctest + extra_tests のdoctestを抽出して統合."""
+    parser = _doctest_mod.DocTestParser()
+    blocks: list[dict] = []
+    for fname, code in files.items():
+        try:
+            for ex in parser.get_examples(code):
+                blocks.append(
+                    {
+                        "file": fname,
+                        "lineno": ex.lineno,
+                        "source": ex.source.rstrip("\n"),
+                        "want": ex.want.rstrip("\n"),
+                    }
+                )
+        except Exception:  # noqa: BLE001
+            continue
+    if extra_tests and extra_tests.strip():
+        try:
+            for ex in parser.get_examples(extra_tests):
+                blocks.append(
+                    {
+                        "file": "(custom)",
+                        "lineno": ex.lineno,
+                        "source": ex.source.rstrip("\n"),
+                        "want": ex.want.rstrip("\n"),
+                    }
+                )
+        except Exception:  # noqa: BLE001
+            pass
+    return blocks
+
+
+def _compare_outputs(want: str, got: str) -> bool:
+    """doctest風の緩い比較（行末空白 / 末尾改行を許容）."""
+    if not want.strip() and not got.strip():
+        return True
+    return want.strip() == got.strip()
+
+
+def run_doctests_with_trace(files: dict[str, str], extra_tests: str = "") -> dict:
+    """doctest形式のテストを実行し、関数呼び出しトレースを返す.
+
+    files: {ファイル名: コード文字列}
+    extra_tests: ユーザーがUI上で追加したdoctest文字列（任意）
+
+    戻り値:
+      {
+        "summary": {"total": N, "pass": K, "fail": L, "load_errors": [...]},
+        "user_funcs": [...],
+        "results": [
+          {
+            "file": "...", "lineno": N, "source": "...", "want": "...",
+            "actual": "...", "status": "pass|fail",
+            "error": str|None,
+            "trace": ["func1", "func2", ...]  # 呼び出された順
+          },
+          ...
+        ]
+      }
+    """
+    # 1. 全ファイルロード（共通の名前空間）
+    namespace, load_errors = _build_namespace(files)
+    user_funcs = _extract_user_funcs(files)
+
+    # 2. テスト抽出
+    tests = _collect_tests(files, extra_tests)
+
+    results = []
+    for tb in tests:
+        trace: list[str] = []
+
+        def tracer(frame, event, arg):  # noqa: ARG001
+            if event == "call":
+                name = frame.f_code.co_name
+                if name in user_funcs and name != "<module>":
+                    trace.append(name)
+            return tracer
+
+        captured = io.StringIO()
+        actual = ""
+        error_msg = None
+        passed = False
+        try:
+            sys.settrace(tracer)
+            with redirect_stdout(captured):
+                # mode='single' で >>> 風の自動 repr 出力を再現
+                code_obj = compile(tb["source"], "<doctest>", "single")
+                exec(code_obj, namespace)
+            sys.settrace(None)
+            actual = captured.getvalue().rstrip("\n")
+            passed = _compare_outputs(tb["want"], actual)
+        except Exception as e:  # noqa: BLE001
+            sys.settrace(None)
+            actual = captured.getvalue().rstrip("\n")
+            error_msg = f"{type(e).__name__}: {e}"
+            want = tb["want"]
+            # Traceback記法で同じ例外型ならpass扱い
+            if "Traceback" in want and type(e).__name__ in want:
+                passed = True
+            else:
+                passed = False
+
+        results.append(
+            {
+                "file": tb["file"],
+                "lineno": tb["lineno"],
+                "source": tb["source"],
+                "want": tb["want"],
+                "actual": actual,
+                "status": "pass" if passed else "fail",
+                "error": error_msg,
+                "trace": trace,
+            }
+        )
+
+    n_pass = sum(1 for r in results if r["status"] == "pass")
+    n_fail = sum(1 for r in results if r["status"] == "fail")
+
+    return {
+        "summary": {
+            "total": len(results),
+            "pass": n_pass,
+            "fail": n_fail,
+            "load_errors": load_errors,
+        },
+        "user_funcs": sorted(user_funcs),
+        "results": results,
+    }

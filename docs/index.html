@@ -33,12 +33,419 @@ body { background: #f5f5f7; color: #1d1d1f; font-family: -apple-system, BlinkMac
 .btn-primary:hover { background: #0062cc; }
 .btn-primary:disabled { background: #c7c7cc; border-color: #c7c7cc; cursor: not-allowed; }
 
-textarea#codeInput {
-  width: 100%; min-height: 240px; font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
-  font-size: 13px; line-height: 1.5; padding: 14px; border: 1px solid #d2d2d7;
-  border-radius: 12px; resize: vertical; background: #fafafa; color: #1d1d1f;
+/* マルチファイル: ファイルカード */
+.file-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+.file-card { background: #fafafa; border: 1px solid #e5e5e5; border-radius: 12px; padding: 12px; transition: border-color 0.15s, background 0.15s; }
+.file-card:focus-within { border-color: #007aff; background: #fff; }
+.file-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.file-card-icon { font-size: 14px; color: #86868b; }
+.file-name-input {
+  flex: 1; border: none; background: transparent; font-size: 13px; font-weight: 600;
+  font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace; color: #1d1d1f;
+  padding: 4px 6px; border-radius: 6px;
 }
-textarea#codeInput:focus { outline: none; border-color: #007aff; background: #fff; }
+.file-name-input:focus { outline: none; background: #fff; box-shadow: 0 0 0 1px #007aff; }
+.file-remove-btn {
+  background: transparent; border: 1px solid #d2d2d7; color: #86868b; cursor: pointer;
+  border-radius: 8px; padding: 4px 10px; font-size: 12px; transition: all 0.15s;
+}
+.file-remove-btn:hover { background: #fff5f5; border-color: #ff3b30; color: #ff3b30; }
+.file-code-input {
+  width: 100%; min-height: 180px; font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+  font-size: 13px; line-height: 1.5; padding: 12px; border: 1px solid #e5e5e5;
+  border-radius: 8px; resize: vertical; background: #fff; color: #1d1d1f;
+}
+.file-code-input:focus { outline: none; border-color: #007aff; }
+.file-meta { display: flex; gap: 12px; font-size: 11px; color: #86868b; margin-top: 6px; padding: 0 4px; }
+
+.add-file-btn {
+  background: #fff; border: 1px dashed #d2d2d7; border-radius: 12px; padding: 14px;
+  cursor: pointer; font-size: 13px; color: #86868b; width: 100%; transition: all 0.15s;
+  margin-bottom: 12px;
+}
+.add-file-btn:hover { border-color: #007aff; color: #007aff; background: #f0f7ff; }
+
+.file-count-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; background: #f0f0f0; color: #86868b; font-size: 12px; font-weight: 500; margin-left: 8px; vertical-align: middle; }
+
+/* ===== Phase C: テスト実行タブ ===== */
+.test-toolbar { display: flex; align-items: center; gap: 8px; margin: 12px 0 8px; flex-wrap: wrap; }
+.test-editor-wrap { background: #fafafa; border: 1px solid #e5e5e5; border-radius: 12px; padding: 10px 12px; }
+.test-editor-label { font-size: 11px; color: #86868b; margin-bottom: 6px; font-weight: 600; }
+.test-editor {
+  width: 100%; min-height: 140px; border: 1px solid #e5e5e5; border-radius: 8px;
+  font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+  font-size: 13px; line-height: 1.5; padding: 10px 12px; background: #fff; color: #1d1d1f;
+  resize: vertical;
+}
+.test-editor:focus { outline: none; border-color: #007aff; }
+.test-summary {
+  margin-top: 16px; padding: 12px 16px; border-radius: 12px;
+  background: #f0f7ff; border: 1px solid #cfe3ff; font-size: 14px;
+  display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+}
+.test-summary .pill { padding: 3px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; }
+.test-summary .pill.pass { background: #e8f8ef; color: #1b7a3d; }
+.test-summary .pill.fail { background: #fde8e8; color: #c0392b; }
+.test-summary .pill.total { background: #f0f0f0; color: #1d1d1f; }
+.test-summary .err-line { font-size: 12px; color: #c53030; margin-top: 6px; flex-basis: 100%; }
+.test-results { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.test-card {
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
+  padding: 12px 14px; transition: border-color 0.15s, background 0.15s;
+}
+.test-card.pass { border-left: 4px solid #34c759; }
+.test-card.fail { border-left: 4px solid #ff3b30; background: #fffafa; }
+.test-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.test-card .badge { font-size: 10px; font-weight: 700; padding: 2px 10px; border-radius: 8px; }
+.test-card .badge.pass { background: #e8f8ef; color: #1b7a3d; }
+.test-card .badge.fail { background: #fde8e8; color: #c0392b; }
+.test-card .source-loc { font-size: 11px; color: #86868b; font-family: 'SF Mono', Menlo, monospace; }
+.test-card .replay-btn {
+  margin-left: auto; background: #fff; border: 1px solid #d2d2d7; padding: 4px 10px;
+  border-radius: 8px; font-size: 11px; cursor: pointer; color: #007aff;
+}
+.test-card .replay-btn:hover { background: #f0f7ff; }
+.test-code-block {
+  background: #f5f5f7; border-radius: 8px; padding: 8px 12px; margin: 6px 0;
+  font-family: 'SF Mono', Menlo, monospace; font-size: 12px; color: #1d1d1f;
+  white-space: pre-wrap; word-break: break-word;
+}
+.test-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.test-diff-col { background: #fafafa; border: 1px solid #e5e5e5; border-radius: 8px; padding: 8px 12px; }
+.test-diff-col.actual { background: #fffafa; border-color: #fed7d7; }
+.test-diff-col .label { font-size: 10px; color: #86868b; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; }
+.test-trace { margin-top: 8px; }
+.test-trace-label { font-size: 11px; color: #86868b; margin-bottom: 4px; }
+.test-trace-chain { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.test-trace-step {
+  background: #f0f7ff; color: #007aff; font-size: 11px; padding: 2px 8px;
+  border-radius: 6px; font-family: 'SF Mono', Menlo, monospace;
+}
+.test-trace-arrow { color: #c0c0c0; font-size: 11px; }
+
+/* 3D 上のハイライトはJSで attribute 操作するため、追加 CSS は不要。
+   ただしハイライト中のステータスバナーを表示する */
+.graph-replay-banner {
+  position: absolute; top: 12px; left: 12px; z-index: 10;
+  background: rgba(20, 20, 35, 0.85); backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px;
+  padding: 8px 14px; color: #fff; font-size: 12px;
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.graph-replay-banner .step-pill {
+  background: #007aff; padding: 2px 8px; border-radius: 8px; font-weight: 600; font-size: 11px;
+}
+
+/* ===== Phase D: 進化を見る ===== */
+.evo-mode-tabs { display: flex; gap: 6px; margin: 12px 0 16px; border-bottom: 1px solid #e5e5e5; }
+.evo-mode-btn {
+  background: none; border: none; padding: 8px 16px; font-size: 13px; font-weight: 500;
+  color: #86868b; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+.evo-mode-btn:hover { color: #1d1d1f; }
+.evo-mode-btn.active { color: #007aff; border-bottom-color: #007aff; }
+
+.evo-pane { padding: 4px 0; }
+.evo-info {
+  background: #f0f7ff; border: 1px solid #cfe3ff; border-radius: 12px;
+  padding: 12px 16px; font-size: 13px; line-height: 1.6; color: #1d1d1f; margin-bottom: 12px;
+}
+.evo-toolbar { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+
+.evo-dropzone {
+  background: #fafafa; border: 2px dashed #d2d2d7; border-radius: 16px;
+  padding: 36px 20px; text-align: center; transition: all 0.15s;
+}
+.evo-dropzone.dragover { border-color: #007aff; background: #f0f7ff; }
+.evo-dropzone-icon { font-size: 36px; margin-bottom: 8px; }
+.evo-dropzone-msg { color: #86868b; font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+
+.evo-timeline {
+  margin-top: 24px; padding: 16px; background: #fafafa; border-radius: 12px; border: 1px solid #e5e5e5;
+}
+.evo-timeline-controls { display: flex; align-items: center; gap: 12px; }
+.evo-slider {
+  flex: 1; height: 6px; -webkit-appearance: none; appearance: none;
+  background: linear-gradient(90deg, #007aff 0%, #007aff 0%, #d2d2d7 0%, #d2d2d7 100%);
+  border-radius: 3px; outline: none; cursor: pointer;
+}
+.evo-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; background: #007aff; border-radius: 50%; cursor: pointer;
+  border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.evo-slider::-moz-range-thumb {
+  width: 16px; height: 16px; background: #007aff; border-radius: 50%; cursor: pointer;
+  border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.evo-step-label { font-size: 13px; color: #1d1d1f; font-weight: 600; min-width: 60px; text-align: right; }
+.evo-step-info {
+  margin-top: 12px; padding: 10px 14px; background: #fff; border-radius: 8px; font-size: 13px;
+  border: 1px solid #e5e5e5;
+}
+.evo-step-info .meta-line { display: flex; gap: 16px; flex-wrap: wrap; color: #1d1d1f; }
+.evo-step-info .meta-line span { font-size: 12px; }
+.evo-step-info .commit-msg { color: #86868b; font-size: 12px; margin-top: 4px; font-family: 'SF Mono', Menlo, monospace; }
+
+.evo-stats { margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: #86868b; }
+.evo-stats .stat-pill {
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 8px;
+  padding: 4px 12px; display: flex; gap: 6px; align-items: center;
+}
+.evo-stats .stat-pill b { color: #1d1d1f; font-size: 13px; }
+
+.evo-progress {
+  margin-top: 12px; height: 4px; background: #e5e5e5; border-radius: 2px; overflow: hidden;
+}
+.evo-progress-bar { height: 100%; background: #007aff; transition: width 0.2s; width: 0%; }
+
+/* ===== Tier 3: Inspector パネル（IDE風サイドパネル） ===== */
+.inspector-panel {
+  position: fixed; top: 0; right: 0; width: 380px; height: 100vh;
+  background: rgba(20, 22, 32, 0.98); backdrop-filter: blur(16px);
+  border-left: 1px solid rgba(255,255,255,0.08); color: #e5e5e5;
+  font-size: 13px; line-height: 1.6; z-index: 100;
+  overflow-y: auto; box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+  transform: translateX(100%); transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.inspector-panel.open { transform: translateX(0); }
+/* Inspector 開いてる間は graph 凡例を一時非表示（被り回避） */
+body.inspector-open .graph-legend { display: none; }
+.inspector-header {
+  display: flex; align-items: center; gap: 8px; padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08); position: sticky; top: 0;
+  background: rgba(20, 22, 32, 0.95);
+}
+.inspector-icon { font-size: 18px; }
+.inspector-title { font-size: 15px; font-weight: 700; flex: 1; color: #fff; word-break: break-all; }
+.inspector-close {
+  background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #999;
+  width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.inspector-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+.inspector-body { padding: 16px; }
+.inspector-section { margin-bottom: 18px; }
+.inspector-section-title {
+  font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.6px;
+  margin-bottom: 8px; font-weight: 600;
+}
+.inspector-meta-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 12px; font-size: 12px;
+}
+.inspector-meta-item { background: rgba(255,255,255,0.04); padding: 6px 10px; border-radius: 8px; }
+.inspector-meta-item .k { color: #888; font-size: 10px; display: block; margin-bottom: 2px; }
+.inspector-meta-item .v { color: #fff; font-weight: 600; }
+.inspector-meta-item .v.bad { color: #ff6e6e; }
+.inspector-meta-item .v.warn { color: #ffaa00; }
+.inspector-meta-item .v.good { color: #34c759; }
+
+.inspector-loc {
+  background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px;
+  font-family: 'SF Mono', Menlo, monospace; font-size: 11px; color: #ccc;
+  display: flex; align-items: center; gap: 8px;
+}
+.inspector-loc-link {
+  background: #007aff; color: #fff; padding: 3px 10px; border-radius: 6px;
+  font-size: 11px; cursor: pointer; border: none;
+}
+.inspector-loc-link:hover { background: #0062cc; }
+
+.inspector-list { display: flex; flex-direction: column; gap: 4px; }
+.inspector-list-item {
+  background: rgba(255,255,255,0.05); padding: 6px 10px; border-radius: 8px;
+  font-family: 'SF Mono', Menlo, monospace; font-size: 11px;
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.inspector-list-item:hover { background: rgba(0, 122, 255, 0.15); color: #fff; }
+.inspector-list-item .badge-mini {
+  font-size: 9px; padding: 1px 6px; border-radius: 4px;
+  background: rgba(255,255,255,0.1); color: #aaa;
+}
+
+.inspector-source {
+  background: #0a0a14; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+  padding: 10px 12px; font-family: 'SF Mono', Menlo, monospace; font-size: 11px;
+  color: #d4d4d4; max-height: 240px; overflow: auto; white-space: pre;
+  line-height: 1.4;
+}
+
+.inspector-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.inspector-tag {
+  background: rgba(0, 122, 255, 0.15); color: #4a9eff; padding: 2px 8px;
+  border-radius: 6px; font-size: 10px; font-weight: 600;
+}
+.inspector-tag.danger { background: rgba(255,59,48,0.15); color: #ff6e6e; }
+.inspector-tag.warn { background: rgba(255,170,0,0.15); color: #ffcc66; }
+
+/* Tier 3: エッジラベル切替 */
+.graph-edge-label-toggle {
+  position: absolute; top: 12px; left: 12px; z-index: 10;
+  background: rgba(20, 20, 35, 0.85); backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+  padding: 6px 12px; color: #ccc; font-size: 11px; cursor: pointer;
+  display: flex; gap: 6px; align-items: center;
+}
+.graph-edge-label-toggle:hover { color: #fff; background: rgba(20,20,35,0.95); }
+.graph-edge-label-toggle.active { color: #4a9eff; border-color: #4a9eff; }
+
+/* コードカードへのジャンプ時のハイライト */
+.file-card.highlight-jump {
+  border-color: #4a9eff !important;
+  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.3);
+  transition: all 0.5s;
+}
+
+/* ===== Phase E: WebLLM トグル + 分析タブ ===== */
+.llm-toggle {
+  position: absolute; top: 28px; right: 130px;
+  background: #fff; border: 1px solid #d2d2d7; padding: 8px 14px;
+  border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 600;
+  color: #1d1d1f; display: flex; align-items: center; gap: 6px;
+  transition: all 0.15s;
+}
+.llm-toggle:hover { border-color: #007aff; }
+.llm-toggle.loading {
+  background: linear-gradient(90deg, #ffd54a, #ffaa00);
+  color: #1d1d1f; border-color: #ffaa00;
+  animation: llm-loading-pulse 1.5s ease-in-out infinite;
+}
+.llm-toggle.on {
+  background: #34c759; color: #fff; border-color: #2ba84a;
+}
+@keyframes llm-loading-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+.llm-toggle .llm-progress {
+  font-size: 10px; opacity: 0.85; margin-left: 4px;
+}
+
+/* LLM 分析タブ */
+.llm-pane { padding: 4px 0; }
+.llm-info {
+  background: #fff8e1; border: 1px solid #ffe082; border-radius: 12px;
+  padding: 12px 16px; font-size: 13px; line-height: 1.6; color: #1d1d1f; margin-bottom: 12px;
+}
+.llm-info code { background: rgba(0,0,0,0.05); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+.llm-controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.llm-model-select {
+  padding: 6px 10px; border-radius: 8px; border: 1px solid #d2d2d7;
+  background: #fff; font-size: 13px; cursor: pointer;
+}
+.llm-status {
+  font-size: 12px; color: #86868b; padding: 6px 12px;
+  background: #f5f5f7; border-radius: 8px;
+}
+.llm-status.error { background: #fde8e8; color: #c0392b; }
+.llm-status.success { background: #e8f8ef; color: #1b7a3d; }
+
+.llm-task-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;
+  margin-bottom: 16px;
+}
+.llm-task-card {
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
+  padding: 14px 16px; cursor: pointer; transition: all 0.15s;
+}
+.llm-task-card:hover { border-color: #007aff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.llm-task-card.disabled { opacity: 0.5; cursor: not-allowed; }
+.llm-task-card .task-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #1d1d1f; }
+.llm-task-card .task-desc { font-size: 12px; color: #86868b; line-height: 1.5; }
+
+.llm-results { display: flex; flex-direction: column; gap: 12px; }
+.llm-result-card {
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
+  padding: 14px 16px;
+}
+.llm-result-card.warn { border-left: 4px solid #ff9500; background: #fffaf0; }
+.llm-result-card.bad { border-left: 4px solid #ff3b30; background: #fff5f5; }
+.llm-result-card.good { border-left: 4px solid #34c759; }
+.llm-result-card .header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.llm-result-card .target {
+  font-family: 'SF Mono', Menlo, monospace; font-weight: 700; color: #1d1d1f; font-size: 13px;
+}
+.llm-result-card .severity-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+}
+.llm-result-card .severity-badge.warn { background: #fef3cd; color: #856404; }
+.llm-result-card .severity-badge.bad { background: #fde8e8; color: #c0392b; }
+.llm-result-card .severity-badge.good { background: #e8f8ef; color: #1b7a3d; }
+.llm-result-card .verdict { font-size: 13px; color: #1d1d1f; margin-top: 4px; line-height: 1.6; white-space: pre-wrap; }
+.llm-result-card .reason { font-size: 12px; color: #86868b; margin-top: 4px; line-height: 1.5; }
+.llm-result-card .show-3d-btn {
+  background: #fff; border: 1px solid #d2d2d7; padding: 4px 10px;
+  border-radius: 6px; font-size: 11px; cursor: pointer; color: #007aff; margin-left: auto;
+}
+
+.llm-progress-bar {
+  margin-top: 12px; height: 6px; background: #e5e5e5; border-radius: 3px; overflow: hidden;
+}
+.llm-progress-bar-fill { height: 100%; background: linear-gradient(90deg, #ffd54a, #ff9500); transition: width 0.2s; width: 0%; }
+
+/* Inspector の LLM評価セクション */
+.inspector-section.llm-section {
+  background: rgba(255, 213, 74, 0.08);
+  border: 1px solid rgba(255, 213, 74, 0.2);
+  border-radius: 8px; padding: 10px 12px;
+}
+.inspector-section.llm-section .inspector-section-title { color: #ffcc66; }
+
+/* LLM 初回確認モーダル */
+.llm-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+  z-index: 200; display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.llm-modal-backdrop.open { display: flex; }
+.llm-modal {
+  background: #fff; border-radius: 18px; max-width: 560px; width: 90%;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  padding: 28px 32px;
+}
+.llm-modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.llm-modal .lead { font-size: 13px; color: #86868b; line-height: 1.6; margin-bottom: 16px; }
+.llm-modal .privacy-callout {
+  background: #e8f8ef; border: 1px solid #b7e5c4; border-radius: 12px;
+  padding: 12px 14px; font-size: 12px; color: #1b7a3d; margin-bottom: 16px; line-height: 1.6;
+}
+.llm-modal .privacy-callout b { color: #0d5524; }
+.llm-modal .warn-callout {
+  background: #fff8e1; border: 1px solid #ffe082; border-radius: 12px;
+  padding: 12px 14px; font-size: 12px; color: #806000; margin-bottom: 16px; line-height: 1.6;
+}
+.llm-modal .model-choice {
+  display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;
+}
+.llm-model-option {
+  display: flex; gap: 12px; padding: 14px 16px; border: 2px solid #e5e5e5;
+  border-radius: 12px; cursor: pointer; transition: all 0.15s;
+  align-items: flex-start;
+}
+.llm-model-option:hover { border-color: #007aff; background: #f0f7ff; }
+.llm-model-option.selected { border-color: #007aff; background: #f0f7ff; }
+.llm-model-option input { margin-top: 4px; cursor: pointer; }
+.llm-model-option .body { flex: 1; }
+.llm-model-option .name { font-size: 14px; font-weight: 700; color: #1d1d1f; margin-bottom: 2px; }
+.llm-model-option .meta { font-size: 12px; color: #86868b; line-height: 1.5; }
+.llm-model-option .badge-rec {
+  font-size: 10px; padding: 2px 8px; border-radius: 6px; background: #34c759; color: #fff; margin-left: 6px;
+}
+
+.llm-modal .opt-row {
+  display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 12px; color: #86868b;
+}
+.llm-modal .modal-actions {
+  display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;
+}
+.llm-modal .modal-actions .btn-primary { background: #007aff; }
+.llm-modal .modal-actions .btn-cancel {
+  background: transparent; border: 1px solid #d2d2d7; color: #1d1d1f;
+  padding: 10px 20px; border-radius: 10px; font-size: 13px; cursor: pointer;
+}
 
 .action-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
 
@@ -77,6 +484,67 @@ textarea#codeInput:focus { outline: none; border-color: #007aff; background: #ff
 #graph2d-container, #graph3d-container { width: 100%; height: 600px; }
 #graph3d-container { background: #0a0a1a; }
 .graph-info { padding: 8px 12px; font-size: 12px; color: #86868b; }
+
+/* 3Dグラフ凡例パネル */
+.graph-legend {
+  position: absolute; top: 12px; right: 12px; z-index: 10;
+  background: rgba(20, 20, 35, 0.85); backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+  padding: 12px 14px; color: #e5e5e5; font-size: 11px; line-height: 1.55;
+  max-width: 240px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  user-select: none;
+  /* グラフコンテナ高さに収まらない場合はスクロール */
+  max-height: calc(100% - 24px); overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+.graph-legend::-webkit-scrollbar { width: 6px; }
+.graph-legend::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+.graph-legend::-webkit-scrollbar-track { background: transparent; }
+.graph-legend.collapsed .legend-body { display: none; }
+.legend-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px; font-size: 12px; font-weight: 600; color: #fff;
+  cursor: pointer;
+}
+.legend-header .toggle { font-size: 14px; color: #999; }
+.legend-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
+.legend-section:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+.legend-section-title { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.legend-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+.legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.legend-line { width: 22px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+.legend-grad {
+  width: 100%; height: 8px; border-radius: 4px; margin: 2px 0;
+  background: linear-gradient(90deg, #ff3b30 0%, #ff9500 50%, #ffd54a 75%, #34c759 100%);
+}
+.legend-grad-labels { display: flex; justify-content: space-between; font-size: 9px; color: #999; }
+
+/* Tier 1: ノード形状の凡例アイコン */
+.legend-shape {
+  display: inline-block; width: 14px; height: 14px; flex-shrink: 0;
+  margin-right: 4px; opacity: 0.85;
+}
+.legend-shape.shape-sphere { background: #4fc3f7; border-radius: 50%; }
+.legend-shape.shape-cube { background: #4fc3f7; border-radius: 2px; }
+.legend-shape.shape-torus {
+  width: 14px; height: 14px; border: 3px solid #4fc3f7; border-radius: 50%; background: transparent;
+}
+.legend-shape.shape-knot {
+  width: 14px; height: 14px; border: 2px dashed #4fc3f7; border-radius: 50%; background: rgba(79,195,247,0.15);
+}
+.legend-shape.shape-octa {
+  width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent;
+  border-bottom: 7px solid #ffaa00; position: relative; margin-top: 4px;
+}
+.legend-shape.shape-octa::after {
+  content: ''; position: absolute; left: -7px; top: 7px;
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
+  border-top: 7px solid #ffaa00;
+}
+
+.legend-module-list { display: flex; flex-direction: column; gap: 3px; }
+.legend-module-row { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+.legend-module-color { width: 14px; height: 8px; border-radius: 2px; flex-shrink: 0; opacity: 0.7; }
 
 /* 警告 */
 .warning { padding: 14px 18px; border-radius: 12px; margin-bottom: 8px; }
@@ -281,6 +749,9 @@ tr:hover td { background: #f9f9fb; }
 <div class="header">
   <h1>Code Quality Graph <span class="health-badge" id="health-badge" style="display:none"></span></h1>
   <p class="subtitle">Pythonコードをグラフ理論で分析 - 呼び出し関係・変更影響・重複・セキュリティを可視化</p>
+  <button class="llm-toggle" id="llmToggleBtn" onclick="toggleLLM()" title="LLMを使ってコードを意味的に解析（オプション、初回モデルDL要）">
+    🤖 <span id="llmToggleLabel">LLM: OFF</span>
+  </button>
   <a class="github-link" href="https://github.com/hajimedayo328/code-quality-graph" target="_blank">GitHub →</a>
 </div>
 
@@ -288,20 +759,16 @@ tr:hover td { background: #f9f9fb; }
 
   <!-- 入力セクション -->
   <div class="section input-section">
-    <h2>コードを入力</h2>
-    <p class="hint">Pythonコードを貼り付けて「解析する」を押すと、ブラウザ内で解析が走ります（サーバ送信なし）</p>
+    <h2>コードを入力<span class="file-count-badge" id="fileCountBadge" style="display:none">0</span></h2>
+    <p class="hint">複数ファイルを追加できます。すべてブラウザ内で解析されます（外部送信ゼロ・コードは端末から出ません）</p>
 
     <div class="btn-row">
-      <button class="btn" onclick="loadSample()">📝 サンプルコードを読み込む</button>
-      <button class="btn" onclick="clearCode()">🗑 クリア</button>
+      <button class="btn" onclick="loadSample()">📝 サンプルを読み込む</button>
+      <button class="btn" onclick="clearAll()">🗑 全消去</button>
     </div>
 
-    <textarea id="codeInput" placeholder="# Pythonコードをここに貼り付けてください
-# 「サンプルコードを読み込む」を押すと、デモ用のコードが入ります
-
-def hello():
-    print('Hello, world!')
-"></textarea>
+    <div id="fileList" class="file-list"></div>
+    <button class="add-file-btn" onclick="addFile()">+ ファイルを追加</button>
 
     <div class="action-row">
       <span class="hint" id="statusText">準備完了</span>
@@ -372,6 +839,9 @@ def hello():
       <div class="tabs">
         <button class="tab active" data-tab="problems">問題点</button>
         <button class="tab" data-tab="graph">呼び出しマップ</button>
+        <button class="tab" data-tab="tests">🧪 テスト実行</button>
+        <button class="tab" data-tab="evolution">📅 進化を見る</button>
+        <button class="tab" data-tab="llm" id="tabBtnLlm" style="display:none">🤖 LLM分析</button>
         <button class="tab" data-tab="imports">Import依存</button>
         <button class="tab" data-tab="impact">変更影響</button>
         <button class="tab" data-tab="duplicates">重複コード</button>
@@ -397,6 +867,119 @@ def hello():
           <span><span class="legend-dot" style="background:#4fc3f7"></span>通常</span>
           <span style="color:#007aff;margin-top:4px">💡 左ドラッグ=回転 / 右ドラッグ=視点移動(パン) / ホイール=ズーム / ノードクリック=ソース表示</span>
         </div>
+      </div>
+
+      <div id="tab-tests" class="tab-content">
+        <div class="section-desc">
+          doctest形式（<code>&gt;&gt;&gt; expr</code> と次行に期待出力）でテストを書いて、
+          <b>「実行＆可視化」</b>を押すと結果と一緒に「呼び出しマップ」上で実行された関数が順番に光ります。
+          <br>すべてブラウザ内で完結（外部送信ゼロ）。
+        </div>
+        <div class="test-toolbar">
+          <button class="btn" onclick="loadSampleTests()">📝 サンプルテストを挿入</button>
+          <button class="btn" onclick="clearExtraTests()">🗑 追加テストを消去</button>
+          <span class="hint" style="margin-left:auto" id="testStatus">ファイル内のdoctestも自動で拾います</span>
+        </div>
+        <div class="test-editor-wrap">
+          <div class="test-editor-label">追加 doctest（任意・ファイルとは別に追記したいテストをここに）</div>
+          <textarea id="extraTestsInput" class="test-editor" placeholder=">>> add(2, 3)
+5
+>>> divide(1, 0)
+Traceback (most recent call last):
+ZeroDivisionError: division by zero"></textarea>
+        </div>
+        <div class="action-row" style="margin-top:8px">
+          <label class="hint" style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="autoSwitchToGraph" checked>
+            実行後に自動で「呼び出しマップ」へ切替
+          </label>
+          <button class="btn-primary" id="runTestsBtn" onclick="runTests()">▶ 実行 ＆ 可視化</button>
+        </div>
+        <div id="testSummary" class="test-summary" style="display:none"></div>
+        <div id="testResults" class="test-results"></div>
+      </div>
+
+      <div id="tab-evolution" class="tab-content">
+        <div class="section-desc">
+          コードの構造が時間とともにどう変化したかを再生します。
+          <b>「ファイル追加履歴」</b>はいま追加した順を時系列にして再生（追加操作だけでOK・アップロード不要）。
+          <b>「git履歴」</b>はオプションで、興味ある人がリポジトリをzipにして読み込みます（外部送信ゼロ・全てブラウザ内処理）。
+        </div>
+        <div class="evo-mode-tabs">
+          <button class="evo-mode-btn active" data-evo-mode="files">📂 ファイル追加履歴（標準）</button>
+          <button class="evo-mode-btn" data-evo-mode="git">📦 git履歴をzipで読込（オプション）</button>
+        </div>
+
+        <!-- ファイル追加履歴モード -->
+        <div id="evo-files-pane" class="evo-pane">
+          <div class="evo-info">
+            「コード入力」セクションで <b>ファイルを追加した順</b> が時系列になります。<br>
+            スライダーを動かすと、その時点までのファイルだけで解析した結果のグラフが表示されます。
+          </div>
+          <div class="evo-toolbar">
+            <button class="btn" id="evoBuildBtn" onclick="buildFileEvolution()">🛠 履歴を構築する</button>
+            <span class="hint" id="evoFilesStatus">未構築（ファイル追加後に押してください）</span>
+          </div>
+        </div>
+
+        <!-- git履歴モード -->
+        <div id="evo-git-pane" class="evo-pane" style="display:none">
+          <div class="evo-info">
+            <b>使い方:</b> ローカルの git リポジトリフォルダを丸ごと zip にして下のドロップゾーンに放り込んでください。
+            <code>.git/</code> 含めて zip にする必要があります。最大50コミットまで読み込みます。<br>
+            <b>プライバシー:</b> 解凍と解析はすべてブラウザ内で実行され、コードは外部に送信されません。
+            必要なライブラリ（isomorphic-git / JSZip）は jsDelivr CDN から読み込まれます。
+          </div>
+          <div id="evoDropzone" class="evo-dropzone">
+            <div class="evo-dropzone-icon">📦</div>
+            <div class="evo-dropzone-msg">ここに <b>repo.zip</b> をドラッグ&ドロップ<br>または</div>
+            <input type="file" id="evoZipInput" accept=".zip" style="display:none">
+            <button class="btn" onclick="document.getElementById('evoZipInput').click()">zip ファイルを選ぶ</button>
+            <div class="hint" id="evoGitStatus" style="margin-top:8px">未読込</div>
+          </div>
+        </div>
+
+        <!-- 共通: タイムライン再生 -->
+        <div id="evoTimeline" class="evo-timeline" style="display:none">
+          <div class="evo-timeline-controls">
+            <button class="btn" id="evoPlayBtn" onclick="evoTogglePlay()">▶ 再生</button>
+            <input type="range" id="evoSlider" class="evo-slider" min="0" max="0" value="0">
+            <span class="evo-step-label" id="evoStepLabel">0 / 0</span>
+          </div>
+          <div class="evo-step-info" id="evoStepInfo"></div>
+          <div class="graph-box" style="margin-top:12px">
+            <div id="evo-graph-container" style="width:100%; height:520px"></div>
+          </div>
+          <div class="evo-stats" id="evoStats"></div>
+        </div>
+      </div>
+
+      <div id="tab-llm" class="tab-content">
+        <div class="section-desc">
+          ローカルLLM（WebLLM、ブラウザ内実行）でコードを<b>意味的に</b>解析します。
+          コードは外部に送信されません（モデル本体だけCDNから取得）。
+        </div>
+        <div class="llm-controls">
+          <span class="llm-status" id="llmTabStatus">未初期化</span>
+        </div>
+        <div class="llm-task-grid">
+          <div class="llm-task-card" id="llmTaskBugs" onclick="runLLMTaskBugs()">
+            <div class="task-title">🔍 意味的バグ検出</div>
+            <div class="task-desc">コンパイルは通るが「論理が逆」「境界値ミス」「意図と違う動き」を発見</div>
+          </div>
+          <div class="llm-task-card" id="llmTaskRefactor" onclick="runLLMTaskRefactor()">
+            <div class="task-title">♻️ リファクタ提案</div>
+            <div class="task-desc">複雑度が高い・認知的負荷が大きい関数を選んで改善案を提示</div>
+          </div>
+          <div class="llm-task-card" id="llmTaskExplain" onclick="runLLMTaskExplain()">
+            <div class="task-title">📝 関数を1行で説明</div>
+            <div class="task-desc">各関数が何をやっているかを短い日本語で要約（コメント代わり）</div>
+          </div>
+        </div>
+        <div class="llm-progress-bar" id="llmRunProgress" style="display:none">
+          <div class="llm-progress-bar-fill" id="llmRunProgressFill"></div>
+        </div>
+        <div class="llm-results" id="llmResults"></div>
       </div>
 
       <div id="tab-imports" class="tab-content">
@@ -431,8 +1014,68 @@ def hello():
 
 </div>
 
+<!-- Phase E: WebLLM 初回確認モーダル -->
+<div class="llm-modal-backdrop" id="llmModalBackdrop">
+  <div class="llm-modal" role="dialog" aria-labelledby="llmModalTitle">
+    <h2 id="llmModalTitle">🤖 ローカルLLM (WebLLM) を有効化</h2>
+    <div class="lead">
+      ブラウザ内で動く言語モデルを使ってコードを <b>意味的に</b> 解析します。
+      最初に1度だけモデル本体をダウンロードします（以降キャッシュされて即起動）。
+    </div>
+
+    <div class="privacy-callout">
+      🔒 <b>プライバシー</b>：あなたのコードは外部サーバーに送信されません。
+      モデル本体だけ jsDelivr CDN から取得し、推論はブラウザ内で完結します。
+    </div>
+
+    <div class="warn-callout">
+      ⚠️ <b>動作要件</b>：WebGPU 対応ブラウザが必須（Chrome 113+ / Edge 113+ 推奨、Firefox/Safariは限定的）。<br>
+      ⏱️ <b>初回ダウンロード時間</b>：選択モデルにより 3〜10 分（ネット速度依存）。
+    </div>
+
+    <div style="font-size:12px;font-weight:600;color:#86868b;margin-bottom:8px">使用モデルを選択（PCスペックに合わせて）</div>
+    <div class="model-choice" id="llmModalChoice"><!-- ラジオは JS で動的生成 --></div>
+
+    <div class="opt-row">
+      <input type="checkbox" id="llmModalDontAsk">
+      <label for="llmModalDontAsk">次回以降この確認を表示しない（同じモデルなら）</label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" type="button" onclick="closeLLMModal()">キャンセル</button>
+      <button class="btn-primary" type="button" onclick="confirmLLMModal()" style="padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600">▶ ダウンロード開始</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tier 3: Inspector パネル（IDE風サイドパネル） -->
+<aside id="inspectorPanel" class="inspector-panel">
+  <div class="inspector-header">
+    <span class="inspector-icon">🔬</span>
+    <span class="inspector-title" id="inspectorTitle">関数情報</span>
+    <button class="inspector-close" onclick="closeInspector()">×</button>
+  </div>
+  <div class="inspector-body" id="inspectorBody"></div>
+</aside>
+
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1/dist/3d-force-graph.min.js"></script>
+<!-- Three.js（UMDで window.THREE 公開する最後の安定版） -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.71.5/dist/3d-force-graph.min.js"></script>
+<!-- Phase D: git履歴の時系列再生（オプション機能・必要時にのみ動作） -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@isomorphic-git/lightning-fs@4.6.0/dist/lightning-fs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.27.1/index.umd.min.js"></script>
+<!-- Phase E: WebLLM（ESMでロード、ON時のみ実際にエンジン作成） -->
+<script type="module">
+  // ユーザーが LLM ON にするまでモジュールはロードしない（無駄な帯域使わない）
+  window.__loadWebLLM = async () => {
+    if (window.webllm) return window.webllm;
+    const m = await import('https://esm.run/@mlc-ai/web-llm@0.2.79');
+    window.webllm = m;
+    return m;
+  };
+</script>
 
 <script>
 // ========== 状態管理 ==========
@@ -465,7 +1108,7 @@ async function initPyodide() {
   await pyodide.runPythonAsync(`
 import sys
 sys.path.insert(0, '.')
-from web_analyzer import analyze_single_file
+from web_analyzer import analyze_single_file, analyze_multiple_files, run_doctests_with_trace
   `);
 
   pyodideReady = true;
@@ -496,28 +1139,159 @@ function hideError() {
   document.getElementById('errorSection').style.display = 'none';
 }
 
+// ========== マルチファイル管理 ==========
+
+const STORAGE_KEY = 'cqg_files_v1';
+let fileList = [];   // [{id, name, code}]
+let nextFileId = 1;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+function loadFilesFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (Array.isArray(data) && data.length > 0) {
+      fileList = data.map(f => ({ id: nextFileId++, name: f.name || 'untitled.py', code: f.code || '' }));
+      return true;
+    }
+  } catch (e) { console.warn('storage load failed', e); }
+  return false;
+}
+
+function saveFilesToStorage() {
+  try {
+    syncFileListFromDOM();
+    const slim = fileList.map(f => ({ name: f.name, code: f.code }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
+  } catch (e) { console.warn('storage save failed', e); }
+}
+
+function syncFileListFromDOM() {
+  const cards = document.querySelectorAll('#fileList .file-card');
+  cards.forEach(card => {
+    const id = parseInt(card.dataset.fileId, 10);
+    const f = fileList.find(x => x.id === id);
+    if (!f) return;
+    f.name = (card.querySelector('.file-name-input').value || '').trim() || 'untitled.py';
+    f.code = card.querySelector('.file-code-input').value;
+  });
+}
+
+function updateFileCountBadge() {
+  const el = document.getElementById('fileCountBadge');
+  if (!el) return;
+  if (fileList.length > 0) {
+    el.textContent = fileList.length + ' ファイル';
+    el.style.display = 'inline-block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function createFileCard(file) {
+  const card = document.createElement('div');
+  card.className = 'file-card';
+  card.dataset.fileId = file.id;
+  card.innerHTML = `
+    <div class="file-card-header">
+      <span class="file-card-icon">📄</span>
+      <input type="text" class="file-name-input" value="${escapeHtml(file.name)}" placeholder="ファイル名（例: utils.py）">
+      <button class="file-remove-btn" type="button">削除</button>
+    </div>
+    <textarea class="file-code-input" placeholder="# Pythonコードをここに"></textarea>
+    <div class="file-meta">
+      <span class="file-lines">行数: 0</span>
+      <span class="file-bytes">サイズ: 0 B</span>
+    </div>
+  `;
+  const ta = card.querySelector('.file-code-input');
+  ta.value = file.code || '';
+  const updateMeta = () => {
+    const v = ta.value;
+    const lines = v ? v.split('\n').length : 0;
+    const bytes = new Blob([v]).size;
+    card.querySelector('.file-lines').textContent = `行数: ${lines}`;
+    card.querySelector('.file-bytes').textContent = `サイズ: ${formatBytes(bytes)}`;
+  };
+  ta.addEventListener('input', () => { updateMeta(); saveFilesToStorage(); });
+  card.querySelector('.file-name-input').addEventListener('input', () => saveFilesToStorage());
+  card.querySelector('.file-remove-btn').addEventListener('click', () => removeFile(file.id));
+  updateMeta();
+  return card;
+}
+
+function renderFileCards() {
+  const container = document.getElementById('fileList');
+  if (!container) return;
+  container.innerHTML = '';
+  fileList.forEach(f => container.appendChild(createFileCard(f)));
+  updateFileCountBadge();
+}
+
+function addFile(name, code) {
+  syncFileListFromDOM();
+  const baseName = name || `file${fileList.length + 1}.py`;
+  fileList.push({ id: nextFileId++, name: baseName, code: code || '' });
+  renderFileCards();
+  saveFilesToStorage();
+}
+
+function removeFile(id) {
+  syncFileListFromDOM();
+  fileList = fileList.filter(f => f.id !== id);
+  if (fileList.length === 0) {
+    fileList.push({ id: nextFileId++, name: 'main.py', code: '' });
+  }
+  renderFileCards();
+  saveFilesToStorage();
+}
+
+function clearAll() {
+  if (!confirm('すべてのファイルを削除しますか？')) return;
+  fileList = [{ id: nextFileId++, name: 'main.py', code: '' }];
+  renderFileCards();
+  saveFilesToStorage();
+  document.getElementById('statusText').textContent = '準備完了';
+}
+
 async function loadSample() {
   try {
     const res = await fetch('sample_code.py?v=' + Date.now());
     if (!res.ok) throw new Error('サンプルコードの取得に失敗しました');
     const code = await res.text();
-    document.getElementById('codeInput').value = code;
+    syncFileListFromDOM();
+    const existing = fileList.find(f => f.name === 'sample_code.py');
+    if (existing) {
+      existing.code = code;
+    } else {
+      fileList.push({ id: nextFileId++, name: 'sample_code.py', code });
+    }
+    renderFileCards();
+    saveFilesToStorage();
     document.getElementById('statusText').textContent = 'サンプル読込済み。「解析する」を押してください';
   } catch (e) {
     showError(e.message);
   }
 }
 
-function clearCode() {
-  document.getElementById('codeInput').value = '';
-  document.getElementById('statusText').textContent = '準備完了';
-}
-
 // ========== 解析実行 ==========
 
 async function analyze() {
-  const code = document.getElementById('codeInput').value;
-  if (!code.trim()) {
+  syncFileListFromDOM();
+  saveFilesToStorage();
+
+  const validFiles = fileList.filter(f => f.code && f.code.trim().length > 0);
+  if (validFiles.length === 0) {
     showError('コードを入力してください');
     return;
   }
@@ -532,13 +1306,32 @@ async function analyze() {
       await initPyodide();
     }
 
-    setLoading('コードを解析中...', 'Pythonで実行中');
+    setLoading('コードを解析中...', `${validFiles.length} ファイルをPythonで実行中`);
 
-    window.lastSource = code;
-    pyodide.globals.set('user_code_input', code);
+    // ファイル名重複時に _2, _3 を付与
+    const usedNames = new Set();
+    const filesDict = {};
+    for (const f of validFiles) {
+      let name = (f.name || '').trim() || 'untitled.py';
+      if (!name.endsWith('.py')) name += '.py';
+      let safe = name;
+      let i = 2;
+      while (usedNames.has(safe)) {
+        safe = name.replace(/\.py$/, `_${i}.py`);
+        i++;
+      }
+      usedNames.add(safe);
+      filesDict[safe] = f.code;
+    }
+
+    // 後段(エクスポート/再描画)で参照されるソース全体を保持
+    window.lastSource = validFiles.map(f => `# ===== ${f.name} =====\n${f.code}`).join('\n\n');
+
+    pyodide.globals.set('user_files_input', pyodide.toPy(filesDict));
     await pyodide.runPythonAsync(`
 import json
-_result_dict = analyze_single_file(user_code_input)
+_files = dict(user_files_input)
+_result_dict = analyze_multiple_files(_files)
 _result_json = json.dumps(_result_dict, ensure_ascii=False, default=str)
     `);
 
@@ -548,7 +1341,7 @@ _result_json = json.dumps(_result_dict, ensure_ascii=False, default=str)
     renderResults(currentResult);
     showLoading(false);
     showResults(true);
-    document.getElementById('statusText').textContent = '解析完了';
+    document.getElementById('statusText').textContent = `解析完了（${validFiles.length} ファイル）`;
   } catch (e) {
     showLoading(false);
     console.error(e);
@@ -557,6 +1350,1027 @@ _result_json = json.dumps(_result_dict, ensure_ascii=False, default=str)
     document.getElementById('analyzeBtn').disabled = false;
   }
 }
+
+// ========== Phase C: テスト実行 + 動的トレース ==========
+
+const SAMPLE_TESTS_TEXT = `>>> format_date("2026-05-01")
+'2026/05/01'
+>>> validate_id(5)
+True
+>>> validate_id(0)
+False
+>>> validate_id("abc")
+False
+`;
+
+function loadSampleTests() {
+  const ta = document.getElementById('extraTestsInput');
+  if (!ta) return;
+  ta.value = SAMPLE_TESTS_TEXT;
+  document.getElementById('testStatus').textContent = 'サンプル挿入済み。「実行 ＆ 可視化」を押してください';
+}
+
+function clearExtraTests() {
+  const ta = document.getElementById('extraTestsInput');
+  if (ta) ta.value = '';
+  document.getElementById('testStatus').textContent = '追加テストを消去しました';
+}
+
+async function runTests() {
+  syncFileListFromDOM();
+  saveFilesToStorage();
+
+  const validFiles = fileList.filter(f => f.code && f.code.trim().length > 0);
+  if (validFiles.length === 0) {
+    showError('テスト対象のコードを「コードを入力」セクションに追加してください');
+    return;
+  }
+  hideError();
+
+  const btn = document.getElementById('runTestsBtn');
+  btn.disabled = true;
+  document.getElementById('testStatus').textContent = '実行中...';
+
+  try {
+    if (!pyodideReady) {
+      showLoading(true);
+      await initPyodide();
+      showLoading(false);
+    }
+
+    // 重複ファイル名対策（analyzeと同じロジック）
+    const usedNames = new Set();
+    const filesDict = {};
+    for (const f of validFiles) {
+      let name = (f.name || '').trim() || 'untitled.py';
+      if (!name.endsWith('.py')) name += '.py';
+      let safe = name;
+      let i = 2;
+      while (usedNames.has(safe)) { safe = name.replace(/\.py$/, `_${i}.py`); i++; }
+      usedNames.add(safe);
+      filesDict[safe] = f.code;
+    }
+
+    const extraTests = (document.getElementById('extraTestsInput').value || '').trim();
+
+    pyodide.globals.set('user_files_for_test', pyodide.toPy(filesDict));
+    pyodide.globals.set('user_extra_tests', extraTests);
+    await pyodide.runPythonAsync(`
+import json
+_files = dict(user_files_for_test)
+_test_result = run_doctests_with_trace(_files, user_extra_tests)
+_test_result_json = json.dumps(_test_result, ensure_ascii=False, default=str)
+    `);
+    const json = pyodide.globals.get('_test_result_json');
+    const result = JSON.parse(json);
+
+    renderTestResults(result);
+    document.getElementById('testStatus').textContent = `完了：${result.summary.pass} pass / ${result.summary.fail} fail`;
+
+    // 自動切替＆全テスト統合トレースの再生
+    const autoSwitch = document.getElementById('autoSwitchToGraph').checked;
+    if (autoSwitch && result.results.length > 0) {
+      const allTrace = result.results.flatMap(r => r.trace || []);
+      switchToTab('graph');
+      setTimeout(() => replayTraceOnGraph3D(allTrace, '全テスト統合'), 350);
+    }
+  } catch (e) {
+    console.error(e);
+    showError('テスト実行に失敗しました: ' + e.message, e.stack || '');
+    document.getElementById('testStatus').textContent = 'エラーが発生しました';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderTestResults(result) {
+  const sumEl = document.getElementById('testSummary');
+  const resEl = document.getElementById('testResults');
+  const s = result.summary || {};
+
+  if ((s.total || 0) === 0) {
+    sumEl.innerHTML = `
+      <span class="pill total">総数 0</span>
+      <span style="color:#86868b">テストが見つかりません。「サンプルテストを挿入」か、コード内に <code>&gt;&gt;&gt;</code> 形式で追加してください</span>
+    `;
+    sumEl.style.display = 'flex';
+    resEl.innerHTML = '';
+    return;
+  }
+
+  sumEl.innerHTML = `
+    <span class="pill total">総数 ${s.total}</span>
+    <span class="pill pass">✅ pass ${s.pass}</span>
+    <span class="pill fail">❌ fail ${s.fail}</span>
+    <span style="color:#86868b">対象関数: ${(result.user_funcs || []).length}個</span>
+    ${(s.load_errors || []).length > 0 ? `<div class="err-line">⚠ ロードエラー: ${s.load_errors.join(' / ')}</div>` : ''}
+  `;
+  sumEl.style.display = 'flex';
+
+  resEl.innerHTML = '';
+  result.results.forEach((r, idx) => {
+    const card = document.createElement('div');
+    card.className = 'test-card ' + r.status;
+    const statusBadge = r.status === 'pass' ? 'badge pass' : 'badge fail';
+    const statusEmoji = r.status === 'pass' ? '✅' : '❌';
+
+    let diffHtml = '';
+    if (r.status === 'fail') {
+      diffHtml = `
+        <div class="test-diff">
+          <div class="test-diff-col"><div class="label">期待 (want)</div><pre style="margin:0;font-size:12px;white-space:pre-wrap">${escapeHtml(r.want || '(なし)')}</pre></div>
+          <div class="test-diff-col actual"><div class="label">実際 (got)</div><pre style="margin:0;font-size:12px;white-space:pre-wrap">${escapeHtml(r.actual || '(出力なし)')}</pre></div>
+        </div>
+      `;
+    }
+    if (r.error) {
+      diffHtml += `<div class="test-code-block" style="background:#fff5f5;color:#c53030">${escapeHtml(r.error)}</div>`;
+    }
+
+    let traceHtml = '';
+    if (r.trace && r.trace.length > 0) {
+      const chain = r.trace.map(f => `<span class="test-trace-step">${escapeHtml(f)}</span>`).join('<span class="test-trace-arrow">→</span>');
+      traceHtml = `
+        <div class="test-trace">
+          <div class="test-trace-label">呼び出しチェーン (${r.trace.length} 関数):</div>
+          <div class="test-trace-chain">${chain}</div>
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="test-card-header">
+        <span class="${statusBadge}">${statusEmoji} ${r.status.toUpperCase()}</span>
+        <span class="source-loc">${escapeHtml(r.file)}${r.lineno ? ' L' + r.lineno : ''}</span>
+        <button class="replay-btn" type="button" data-idx="${idx}">▶ このテストを3Dで再生</button>
+      </div>
+      <div class="test-code-block">&gt;&gt;&gt; ${escapeHtml(r.source)}</div>
+      ${diffHtml}
+      ${traceHtml}
+    `;
+    card.querySelector('.replay-btn').addEventListener('click', () => {
+      switchToTab('graph');
+      setTimeout(() => replayTraceOnGraph3D(r.trace || [], `${r.file} L${r.lineno || ''}: ${r.source}`), 350);
+    });
+    resEl.appendChild(card);
+  });
+}
+
+function switchToTab(tabName) {
+  const btn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (btn) btn.click();
+}
+
+// ========== Phase C: 3Dグラフ上で呼び出しトレースを再生 ==========
+
+let _replayState = null;  // { active, banner, originalColors, intervalId }
+
+function replayTraceOnGraph3D(trace, labelText) {
+  const graph = graphs.graph3d;
+  const container = document.getElementById('graph3d-container');
+  if (!graph || !container) return;
+
+  // 既存の再生があれば停止
+  stopReplay();
+
+  if (!trace || trace.length === 0) {
+    showReplayBanner(container, '呼び出されたユーザー関数なし', 0, 0);
+    setTimeout(() => stopReplay(), 1500);
+    return;
+  }
+
+  // 関数名 → 該当ノード（複数モジュールで同名がありうるので配列）
+  const data = graph.graphData();
+  const nameToNodes = {};
+  data.nodes.forEach(n => {
+    if (!nameToNodes[n.label]) nameToNodes[n.label] = [];
+    nameToNodes[n.label].push(n);
+  });
+
+  // ハイライト前の元色を保存
+  const originalColors = new Map();
+  data.nodes.forEach(n => originalColors.set(n.id, n.color));
+
+  // バナー表示
+  const banner = showReplayBanner(container, labelText || '実行トレース再生中', 0, trace.length);
+
+  _replayState = {
+    active: true,
+    banner,
+    originalColors,
+    graph,
+    nameToNodes,
+    trace,
+    step: 0,
+    intervalId: null,
+  };
+
+  // 一定間隔でステップ進行
+  const STEP_MS = Math.max(220, Math.min(700, 2400 / trace.length));
+  _replayState.intervalId = setInterval(() => {
+    if (!_replayState || !_replayState.active) return;
+    const i = _replayState.step;
+    if (i >= trace.length) {
+      // 終了：少し余韻を見せて元に戻す
+      clearInterval(_replayState.intervalId);
+      setTimeout(() => stopReplay(), 1200);
+      return;
+    }
+    highlightFunction(graph, nameToNodes[trace[i]] || [], i, trace.length);
+    updateReplayBanner(banner, trace[i], i + 1, trace.length);
+    _replayState.step += 1;
+  }, STEP_MS);
+}
+
+function highlightFunction(graph, nodes, stepIdx, total) {
+  if (!nodes || nodes.length === 0) return;
+  // ステップに応じて色を変える
+  const t = total > 1 ? stepIdx / (total - 1) : 0;
+  const stops = [
+    { p: 0,   c: [255, 90, 200] },
+    { p: 0.5, c: [255, 220, 90] },
+    { p: 1,   c: [120, 230, 255] },
+  ];
+  let col = stops[stops.length - 1].c;
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (t >= stops[i].p && t <= stops[i+1].p) {
+      const a = stops[i], b = stops[i+1];
+      const k = (t - a.p) / (b.p - a.p);
+      col = [
+        Math.round(a.c[0] + (b.c[0]-a.c[0])*k),
+        Math.round(a.c[1] + (b.c[1]-a.c[1])*k),
+        Math.round(a.c[2] + (b.c[2]-a.c[2])*k),
+      ];
+      break;
+    }
+  }
+  const highlightColor = `rgb(${col[0]},${col[1]},${col[2]})`;
+  const threeColor = new THREE.Color(highlightColor);
+
+  // カスタム Mesh の material を直接いじる
+  nodes.forEach(n => {
+    n.color = highlightColor;  // データ側も保持（stopReplay復元時に参照）
+    if (n.__threeObj && n.__threeObj.material) {
+      n.__threeObj.material.color.copy(threeColor);
+      n.__threeObj.material.emissive = threeColor;
+      n.__threeObj.material.emissiveIntensity = 0.6;
+      n.__threeObj.scale.setScalar(1.4);  // ふくらませて目立たせる
+    }
+  });
+
+  // 残り火演出：少し縮小して次ステップを待つ
+  setTimeout(() => {
+    if (!_replayState || !_replayState.active) return;
+    nodes.forEach(n => {
+      if (n.__threeObj) {
+        n.__threeObj.scale.setScalar(1.15);
+        if (n.__threeObj.material) n.__threeObj.material.emissiveIntensity = 0.3;
+      }
+    });
+  }, 280);
+}
+
+function showReplayBanner(container, label, current, total) {
+  const old = container.querySelector('.graph-replay-banner');
+  if (old) old.remove();
+  const banner = document.createElement('div');
+  banner.className = 'graph-replay-banner';
+  banner.innerHTML = `
+    <span class="step-pill">${current}/${total}</span>
+    <span class="banner-label">${escapeHtml(label)}</span>
+    <span style="color:#aaa">▶ 再生中</span>
+  `;
+  container.appendChild(banner);
+  return banner;
+}
+
+function updateReplayBanner(banner, funcName, current, total) {
+  if (!banner) return;
+  banner.innerHTML = `
+    <span class="step-pill">${current}/${total}</span>
+    <span class="banner-label">→ <code style="color:#ffd54a">${escapeHtml(funcName)}</code></span>
+  `;
+}
+
+function stopReplay() {
+  if (!_replayState) return;
+  if (_replayState.intervalId) clearInterval(_replayState.intervalId);
+  // 元色・元サイズに戻す
+  if (_replayState.graph && _replayState.originalColors) {
+    const data = _replayState.graph.graphData();
+    data.nodes.forEach(n => {
+      const c = _replayState.originalColors.get(n.id);
+      if (c) n.color = c;
+      // カスタム Mesh の color/scale/emissive 復元
+      if (n.__threeObj && n.__threeObj.material) {
+        n.__threeObj.material.color.set(n.color || '#88ccff');
+        n.__threeObj.material.emissiveIntensity = (n.is_entry ? 0.35 : 0);
+        if (n.is_entry) {
+          n.__threeObj.material.emissive = new THREE.Color('#ffaa00');
+        } else {
+          n.__threeObj.material.emissive = new THREE.Color('#000000');
+        }
+        n.__threeObj.scale.setScalar(1.0);
+      }
+    });
+  }
+  if (_replayState.banner) _replayState.banner.remove();
+  _replayState = null;
+}
+
+// ========== Phase D: 進化を見る（D1=ファイル追加順 / D3=git zip） ==========
+
+// 進化モード切替
+function initEvolutionTabs() {
+  document.querySelectorAll('.evo-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.evo-mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const mode = btn.dataset.evoMode;
+      document.getElementById('evo-files-pane').style.display = (mode === 'files') ? 'block' : 'none';
+      document.getElementById('evo-git-pane').style.display = (mode === 'git') ? 'block' : 'none';
+      // モード切替時はタイムラインリセット
+      _evoTimeline = [];
+      _evoCurrentIdx = -1;
+      document.getElementById('evoTimeline').style.display = 'none';
+      stopEvoPlay();
+    });
+  });
+}
+
+// 進化タイムライン状態
+let _evoTimeline = [];      // [{label, source, code_size, result, timestamp?, msg?}]
+let _evoCurrentIdx = -1;
+let _evoPlayingId = null;
+let _evoGraph = null;
+
+// === D1: ファイル追加履歴の構築 ===
+async function buildFileEvolution() {
+  syncFileListFromDOM();
+  const validFiles = fileList.filter(f => f.code && f.code.trim().length > 0);
+  if (validFiles.length < 2) {
+    document.getElementById('evoFilesStatus').textContent = '⚠ ファイルが2個以上必要です（カードを追加してください）';
+    return;
+  }
+
+  if (!pyodideReady) {
+    document.getElementById('evoFilesStatus').textContent = 'Pyodide初期化中...';
+    showLoading(true);
+    await initPyodide();
+    showLoading(false);
+  }
+
+  const status = document.getElementById('evoFilesStatus');
+  _evoTimeline = [];
+
+  // ファイル名重複対策
+  function uniqueDictUpTo(k) {
+    const used = new Set();
+    const dict = {};
+    for (let i = 0; i < k; i++) {
+      const f = validFiles[i];
+      let name = (f.name || '').trim() || 'untitled.py';
+      if (!name.endsWith('.py')) name += '.py';
+      let safe = name;
+      let i2 = 2;
+      while (used.has(safe)) { safe = name.replace(/\.py$/, `_${i2}.py`); i2++; }
+      used.add(safe);
+      dict[safe] = f.code;
+    }
+    return dict;
+  }
+
+  for (let i = 1; i <= validFiles.length; i++) {
+    status.textContent = `構築中... ${i}/${validFiles.length}`;
+    const filesDict = uniqueDictUpTo(i);
+    pyodide.globals.set('evo_files_input', pyodide.toPy(filesDict));
+    await pyodide.runPythonAsync(`
+import json
+_evo_result = analyze_multiple_files(dict(evo_files_input))
+_evo_result_json = json.dumps(_evo_result, ensure_ascii=False, default=str)
+    `);
+    const json = pyodide.globals.get('_evo_result_json');
+    const result = JSON.parse(json);
+    const lastFile = validFiles[i - 1];
+    _evoTimeline.push({
+      label: `+ ${lastFile.name}`,
+      source: 'files',
+      code_size: Object.values(filesDict).reduce((s, c) => s + c.length, 0),
+      result,
+    });
+  }
+
+  status.textContent = `✅ ${validFiles.length} ステップ構築完了`;
+  setupTimeline();
+}
+
+// === D3: git zip 読込 ===
+function initGitDropzone() {
+  const dz = document.getElementById('evoDropzone');
+  if (!dz) return;
+  ['dragenter', 'dragover'].forEach(e => dz.addEventListener(e, ev => {
+    ev.preventDefault(); ev.stopPropagation(); dz.classList.add('dragover');
+  }));
+  ['dragleave', 'drop'].forEach(e => dz.addEventListener(e, ev => {
+    ev.preventDefault(); ev.stopPropagation(); dz.classList.remove('dragover');
+  }));
+  dz.addEventListener('drop', ev => {
+    const files = ev.dataTransfer?.files;
+    if (files && files[0]) handleGitZip(files[0]);
+  });
+  document.getElementById('evoZipInput').addEventListener('change', ev => {
+    if (ev.target.files[0]) handleGitZip(ev.target.files[0]);
+  });
+}
+
+async function handleGitZip(file) {
+  const status = document.getElementById('evoGitStatus');
+  status.textContent = `読み込み中: ${file.name} (${formatBytes(file.size)})`;
+
+  if (typeof JSZip === 'undefined' || typeof LightningFS === 'undefined' || typeof git === 'undefined') {
+    status.textContent = '❌ ライブラリ読込失敗（JSZip/LightningFS/isomorphic-git）。CDN到達不可かも。';
+    return;
+  }
+
+  try {
+    if (!pyodideReady) {
+      status.textContent = 'Pyodide初期化中...';
+      showLoading(true);
+      await initPyodide();
+      showLoading(false);
+    }
+
+    // 1) zip 展開して LightningFS に書き込む
+    status.textContent = 'zip 展開中...';
+    const zip = await JSZip.loadAsync(file);
+
+    // ルートディレクトリ判定（zip 直下に1つだけフォルダがあれば剥がす）
+    const topLevel = new Set();
+    Object.keys(zip.files).forEach(p => topLevel.add(p.split('/')[0]));
+    let prefix = '';
+    if (topLevel.size === 1) {
+      const only = [...topLevel][0];
+      // .git が直下なら剥がさない、別フォルダ名なら剥がす
+      const hasDirectGit = !!zip.files[only + '/.git/'] || Object.keys(zip.files).some(p => p.startsWith(only + '/.git/'));
+      if (hasDirectGit) prefix = only + '/';
+    }
+
+    const fs = new LightningFS('cqg-evo-' + Date.now(), { wipe: true });
+    const pfs = fs.promises;
+    const REPO_DIR = '/repo';
+    await pfs.mkdir(REPO_DIR).catch(() => {});
+
+    let written = 0;
+    const entries = Object.entries(zip.files);
+    for (const [path, entry] of entries) {
+      if (entry.dir) continue;
+      const rel = prefix && path.startsWith(prefix) ? path.slice(prefix.length) : path;
+      if (!rel) continue;
+      const full = REPO_DIR + '/' + rel;
+      const dirPath = full.split('/').slice(0, -1).join('/');
+      await ensureDir(pfs, dirPath);
+      const content = await entry.async('uint8array');
+      await pfs.writeFile(full, content);
+      written++;
+      if (written % 50 === 0) status.textContent = `展開中... ${written} ファイル`;
+    }
+
+    // .git 存在確認
+    const gitDirExists = await pfs.stat(REPO_DIR + '/.git').then(() => true).catch(() => false);
+    if (!gitDirExists) {
+      status.textContent = '❌ .git/ フォルダが見つかりません。リポジトリ全体（.git含む）を zip にしてください。';
+      return;
+    }
+
+    // 2) git log 取得
+    status.textContent = 'git log 取得中...';
+    const log = await git.log({ fs, dir: REPO_DIR, depth: 50 });
+    if (log.length === 0) {
+      status.textContent = '❌ コミットがありません。';
+      return;
+    }
+
+    // 3) 各 commit ごとに .py を集めて解析
+    _evoTimeline = [];
+    const ordered = log.slice().reverse();  // 古い順
+    for (let i = 0; i < ordered.length; i++) {
+      const c = ordered[i];
+      status.textContent = `解析中: ${i + 1}/${ordered.length} (${c.oid.slice(0,7)})`;
+
+      // 当該 commit のツリーから .py ファイルを再帰収集
+      const filesAtCommit = {};
+      try {
+        await collectPyFilesFromCommit(fs, REPO_DIR, c.oid, filesAtCommit);
+      } catch (e) {
+        console.warn('skip commit', c.oid, e);
+        continue;
+      }
+      if (Object.keys(filesAtCommit).length === 0) continue;
+
+      pyodide.globals.set('evo_git_files', pyodide.toPy(filesAtCommit));
+      try {
+        await pyodide.runPythonAsync(`
+import json
+_evo_git_result = analyze_multiple_files(dict(evo_git_files))
+_evo_git_result_json = json.dumps(_evo_git_result, ensure_ascii=False, default=str)
+        `);
+        const json = pyodide.globals.get('_evo_git_result_json');
+        const result = JSON.parse(json);
+        const cm = c.commit;
+        _evoTimeline.push({
+          label: c.oid.slice(0, 7),
+          source: 'git',
+          code_size: Object.values(filesAtCommit).reduce((s, code) => s + code.length, 0),
+          result,
+          msg: (cm.message || '').split('\n')[0].slice(0, 80),
+          timestamp: cm.author?.timestamp ? new Date(cm.author.timestamp * 1000) : null,
+          author: cm.author?.name || '',
+        });
+      } catch (err) {
+        console.warn('analyze failed at', c.oid, err);
+      }
+    }
+
+    if (_evoTimeline.length === 0) {
+      status.textContent = '❌ 解析できる .py ファイルが見つかりませんでした';
+      return;
+    }
+    status.textContent = `✅ ${_evoTimeline.length} コミット解析完了`;
+    setupTimeline();
+  } catch (e) {
+    console.error(e);
+    status.textContent = '❌ 失敗: ' + e.message;
+  }
+}
+
+async function ensureDir(pfs, dir) {
+  if (!dir || dir === '/') return;
+  const parts = dir.split('/').filter(Boolean);
+  let cur = '';
+  for (const p of parts) {
+    cur += '/' + p;
+    try { await pfs.stat(cur); } catch (e) { try { await pfs.mkdir(cur); } catch (e2) {} }
+  }
+}
+
+// 指定 commit から root tree を取得して .py を集める
+async function collectPyFilesFromCommit(fs, dir, commitOid, out) {
+  const c = await git.readCommit({ fs, dir, oid: commitOid });
+  await collectPyFilesFromTree(fs, dir, c.commit.tree, out, '');
+}
+
+// tree OID から再帰的に .py を集める
+async function collectPyFilesFromTree(fs, dir, treeOid, out, prefix = '') {
+  const result = await git.readTree({ fs, dir, oid: treeOid });
+  for (const entry of result.tree) {
+    const path = prefix ? `${prefix}/${entry.path}` : entry.path;
+    if (entry.type === 'tree') {
+      await collectPyFilesFromTree(fs, dir, entry.oid, out, path);
+    } else if (entry.type === 'blob' && path.endsWith('.py')) {
+      try {
+        const blob = await git.readBlob({ fs, dir, oid: entry.oid });
+        const content = new TextDecoder('utf-8').decode(blob.blob);
+        // ファイル名重複防止のためフルパスを使う（/ を __ に変換）
+        const safeName = path.replace(/[\/\\]/g, '__');
+        out[safeName] = content;
+      } catch (e) {
+        console.warn('readBlob failed', path, e);
+      }
+    }
+  }
+}
+
+// === タイムライン共通 ===
+function setupTimeline() {
+  const tl = document.getElementById('evoTimeline');
+  const slider = document.getElementById('evoSlider');
+  tl.style.display = 'block';
+  slider.min = 0;
+  slider.max = Math.max(0, _evoTimeline.length - 1);
+  slider.value = 0;
+  _evoCurrentIdx = -1;
+  showEvoStep(0);
+  slider.oninput = (ev) => showEvoStep(parseInt(ev.target.value, 10));
+}
+
+function showEvoStep(idx) {
+  if (idx < 0 || idx >= _evoTimeline.length) return;
+  _evoCurrentIdx = idx;
+  const step = _evoTimeline[idx];
+  const slider = document.getElementById('evoSlider');
+  slider.value = idx;
+  // スライダーの進捗バー
+  const pct = _evoTimeline.length > 1 ? (idx / (_evoTimeline.length - 1)) * 100 : 100;
+  slider.style.background = `linear-gradient(90deg, #007aff 0%, #007aff ${pct}%, #d2d2d7 ${pct}%, #d2d2d7 100%)`;
+
+  document.getElementById('evoStepLabel').textContent = `${idx + 1} / ${_evoTimeline.length}`;
+
+  const info = document.getElementById('evoStepInfo');
+  const ts = step.timestamp ? step.timestamp.toLocaleString('ja-JP') : '';
+  const meta = `
+    <div class="meta-line">
+      <span><b>${escapeHtml(step.label)}</b></span>
+      ${ts ? `<span>🕐 ${escapeHtml(ts)}</span>` : ''}
+      ${step.author ? `<span>👤 ${escapeHtml(step.author)}</span>` : ''}
+      <span>📏 ${formatBytes(step.code_size || 0)}</span>
+    </div>
+    ${step.msg ? `<div class="commit-msg">${escapeHtml(step.msg)}</div>` : ''}
+  `;
+  info.innerHTML = meta;
+
+  // 統計表示
+  const s = step.result.stats || {};
+  document.getElementById('evoStats').innerHTML = `
+    <div class="stat-pill">関数 <b>${s.n_functions || 0}</b></div>
+    <div class="stat-pill">エッジ <b>${s.n_edges || 0}</b></div>
+    <div class="stat-pill">ファイル <b>${s.n_files || 0}</b></div>
+    <div class="stat-pill">スコア <b>${s.avg_score || 0}</b></div>
+    <div class="stat-pill">負債 <b>${s.debt_hours || 0}h</b></div>
+  `;
+
+  // 3Dグラフを描画（既存 initGraph3D を再利用、コンテナだけ別）
+  const r = step.result;
+  initGraph3D('evo-graph-container', r.nodes || [], r.edges || []);
+  _evoGraph = graphs.graph3d;
+}
+
+function evoTogglePlay() {
+  const btn = document.getElementById('evoPlayBtn');
+  if (_evoPlayingId) {
+    stopEvoPlay();
+    return;
+  }
+  if (_evoTimeline.length === 0) return;
+  btn.textContent = '⏸ 停止';
+  let idx = (_evoCurrentIdx >= _evoTimeline.length - 1) ? 0 : _evoCurrentIdx + 1;
+  showEvoStep(idx);
+  _evoPlayingId = setInterval(() => {
+    if (_evoCurrentIdx >= _evoTimeline.length - 1) {
+      stopEvoPlay();
+      return;
+    }
+    showEvoStep(_evoCurrentIdx + 1);
+  }, 1500);
+}
+
+function stopEvoPlay() {
+  if (_evoPlayingId) {
+    clearInterval(_evoPlayingId);
+    _evoPlayingId = null;
+  }
+  const btn = document.getElementById('evoPlayBtn');
+  if (btn) btn.textContent = '▶ 再生';
+}
+
+// ========== Phase E: WebLLM（ローカルLLM、オプション機能） ==========
+
+let _llmEngine = null;
+let _llmReady = false;
+let _llmLoading = false;
+let _llmModelId = 'Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC';  // デフォルト軽量
+let _llmResults = {};  // {nodeId: {bugs, refactor, explain}}
+
+// 2026/5 時点で WebLLM 公式 prebuilt にあるモデルから抜粋。
+// PCスペックに合わせてユーザーが選択できるよう幅広いプリセットを用意。
+//   Coder = コード特化（Qwen2.5-Coder）
+//   汎用最新 = Qwen3.5（コード版はMLC未提供）
+//   推論特化 = DeepSeek-R1-Distill（思考過程あり）
+const LLM_MODEL_OPTIONS = {
+  tiny:     { id: 'Qwen2.5-Coder-0.5B-Instruct-q4f16_1-MLC', label: '超軽量 (0.5B, 0.3GB)',   size: '0.3GB', vram: '~0.5GB', rec: 'iGPU・古いノートPC' },
+  light:    { id: 'Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC', label: '軽量 Coder (1.5B, 1GB)', size: '1GB',   vram: '~1.5GB', rec: '標準PC・初めての人' },
+  balanced: { id: 'Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC',   label: 'バランス (3B, 2GB)',     size: '2GB',   vram: '~2.5GB', rec: 'ミドルGPU 4GB+' },
+  strong:   { id: 'Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC',   label: '高性能 Coder (7B, 5GB)', size: '5GB',   vram: '~5GB',   rec: 'ハイエンドGPU 6GB+' },
+  latest:   { id: 'Qwen3.5-4B-q4f16_1-MLC',                  label: '最新汎用 (Qwen3.5 4B, 2.5GB)', size: '2.5GB', vram: '~3GB', rec: '最新世代の汎用モデル' },
+  reasoning:{ id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC', label: '推論特化 (R1-Distill 7B, 5GB)', size: '5GB', vram: '~5GB', rec: '思考過程ありの解析（実験）' },
+};
+
+const LLM_CONFIRM_KEY = 'cqg_llm_confirmed_v1';
+
+async function toggleLLM() {
+  if (_llmLoading) return;
+  if (_llmReady) {
+    // ON 状態でクリック → OFF（エンジンは保持、UIだけクローズで再起動を高速化）
+    setLLMUiState('off');
+    return;
+  }
+  // 「次回以降確認しない」を以前選んでいたか確認
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(LLM_CONFIRM_KEY) || 'null'); } catch (e) { /* ignore */ }
+  if (cached && cached.dontAsk && cached.modelKey) {
+    const opt = LLM_MODEL_OPTIONS[cached.modelKey];
+    if (opt) {
+      _llmModelId = opt.id;
+      await initLLM(_llmModelId);
+      return;
+    }
+  }
+  openLLMModal();
+}
+
+function openLLMModal() {
+  // 過去の選択を反映
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(LLM_CONFIRM_KEY) || 'null'); } catch (e) { /* ignore */ }
+  const defaultKey = cached?.modelKey || 'light';
+
+  // モデルラジオを動的生成（LLM_MODEL_OPTIONS から）
+  const choice = document.getElementById('llmModalChoice');
+  const recommendKey = 'light';   // デフォルト推奨
+  const orderedKeys = ['tiny', 'light', 'balanced', 'latest', 'strong', 'reasoning'];
+  choice.innerHTML = orderedKeys.map(key => {
+    const opt = LLM_MODEL_OPTIONS[key];
+    if (!opt) return '';
+    const isSel = key === defaultKey;
+    const recBadge = key === recommendKey ? '<span class="badge-rec">推奨</span>' : '';
+    return `
+      <label class="llm-model-option ${isSel ? 'selected' : ''}" data-model="${key}">
+        <input type="radio" name="llmModelChoice" value="${key}" ${isSel ? 'checked' : ''}>
+        <div class="body">
+          <div class="name">${escapeHtml(opt.label.split(' (')[0])} ${recBadge}</div>
+          <div class="meta">サイズ ${escapeHtml(opt.size)} / VRAM ${escapeHtml(opt.vram)} / モデルID: <code style="font-size:10px">${escapeHtml(opt.id)}</code></div>
+          <div class="meta" style="color:#1d1d1f;margin-top:2px">${escapeHtml(opt.rec)}</div>
+        </div>
+      </label>
+    `;
+  }).join('');
+
+  document.getElementById('llmModalDontAsk').checked = !!(cached?.dontAsk);
+
+  // ラジオ変更時に visual selected を切替
+  document.querySelectorAll('#llmModalChoice .llm-model-option').forEach(el => {
+    el.onclick = () => {
+      document.querySelectorAll('#llmModalChoice .llm-model-option').forEach(e2 => e2.classList.remove('selected'));
+      el.classList.add('selected');
+      el.querySelector('input').checked = true;
+    };
+  });
+
+  document.getElementById('llmModalBackdrop').classList.add('open');
+}
+
+function closeLLMModal() {
+  document.getElementById('llmModalBackdrop').classList.remove('open');
+}
+
+async function confirmLLMModal() {
+  const selected = document.querySelector('#llmModalChoice input[name="llmModelChoice"]:checked')?.value || 'light';
+  const dontAsk = document.getElementById('llmModalDontAsk').checked;
+  // 保存
+  try {
+    localStorage.setItem(LLM_CONFIRM_KEY, JSON.stringify({ modelKey: selected, dontAsk }));
+  } catch (e) { /* ignore */ }
+  const opt = LLM_MODEL_OPTIONS[selected];
+  _llmModelId = opt.id;
+  closeLLMModal();
+  await initLLM(_llmModelId);
+}
+
+function setLLMUiState(state, progressText) {
+  const btn = document.getElementById('llmToggleBtn');
+  const label = document.getElementById('llmToggleLabel');
+  const tab = document.getElementById('tabBtnLlm');
+  const status = document.getElementById('llmTabStatus');
+  btn.classList.remove('loading', 'on');
+  if (state === 'off') {
+    label.textContent = 'LLM: OFF';
+    tab.style.display = 'none';
+    if (status) status.textContent = '未初期化';
+    if (status) status.className = 'llm-status';
+    _llmReady = false;
+    _llmLoading = false;
+    setLLMTaskCardsEnabled(false);
+  } else if (state === 'loading') {
+    btn.classList.add('loading');
+    label.innerHTML = `LLM: 初期化中... <span class="llm-progress">${escapeHtml(progressText || '')}</span>`;
+    if (status) { status.textContent = '初期化中: ' + (progressText || ''); status.className = 'llm-status'; }
+    _llmLoading = true;
+    _llmReady = false;
+  } else if (state === 'on') {
+    btn.classList.add('on');
+    label.textContent = 'LLM: ON ✓';
+    tab.style.display = '';
+    if (status) { status.textContent = `準備完了 (${_llmModelId})`; status.className = 'llm-status success'; }
+    _llmLoading = false;
+    _llmReady = true;
+    setLLMTaskCardsEnabled(true);
+  } else if (state === 'error') {
+    btn.classList.remove('loading', 'on');
+    label.textContent = 'LLM: エラー';
+    if (status) { status.textContent = 'エラー: ' + (progressText || ''); status.className = 'llm-status error'; }
+    _llmLoading = false;
+    _llmReady = false;
+  }
+}
+
+function setLLMTaskCardsEnabled(enabled) {
+  ['llmTaskBugs', 'llmTaskRefactor', 'llmTaskExplain'].forEach(id => {
+    const c = document.getElementById(id);
+    if (!c) return;
+    if (enabled) c.classList.remove('disabled');
+    else c.classList.add('disabled');
+  });
+}
+
+async function initLLM(modelId) {
+  setLLMUiState('loading', 'モジュール読込');
+  try {
+    const webllm = await window.__loadWebLLM();
+    if (!webllm || !webllm.CreateMLCEngine) {
+      throw new Error('WebLLM モジュールのロードに失敗');
+    }
+    _llmEngine = await webllm.CreateMLCEngine(modelId, {
+      initProgressCallback: (p) => {
+        const pct = Math.round((p.progress || 0) * 100);
+        setLLMUiState('loading', `${pct}% ${p.text || ''}`.slice(0, 60));
+      },
+    });
+    setLLMUiState('on');
+  } catch (e) {
+    console.error('WebLLM init failed', e);
+    setLLMUiState('error', e.message);
+    alert('WebLLM 初期化失敗: ' + e.message + '\n\n' +
+          'WebGPU対応ブラウザ（最新Chrome/Edge）が必要です。Firefoxは限定的です。');
+  }
+}
+
+async function llmAsk(systemPrompt, userPrompt, opts = {}) {
+  if (!_llmEngine || !_llmReady) throw new Error('LLM未初期化');
+  const reply = await _llmEngine.chat.completions.create({
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: opts.temperature ?? 0.2,
+    max_tokens: opts.max_tokens ?? 320,
+  });
+  return reply.choices?.[0]?.message?.content?.trim() ?? '';
+}
+
+// === タスク 1: 意味的バグ検出 ===
+async function runLLMTaskBugs() {
+  if (!_llmReady || !currentResult) return;
+  await runLLMOverFunctions('bugs', '意味的バグ検出', `あなたはPythonコードレビューア。
+コードを読み「コンパイルは通るが論理エラー・境界値ミス・意図と違う動き」を見つけてください。
+回答形式（厳密に守る）:
+判定: [BUG / SUSPICIOUS / OK]
+要点: 1〜2文
+理由: 具体的な該当箇所
+日本語で簡潔に。`);
+}
+
+async function runLLMTaskRefactor() {
+  if (!_llmReady || !currentResult) return;
+  await runLLMOverFunctions('refactor', 'リファクタ提案', `あなたはPythonコードレビューア。
+コードの「複雑さ・読みにくさ」を改善する具体的な提案を1つだけ提示してください。
+回答形式:
+判定: [REFACTOR_NEEDED / OK]
+提案: 1〜2文
+日本語で簡潔に。`, n => (n.complexity || 0) >= 4 || (n.cognitive || 0) >= 5);
+}
+
+async function runLLMTaskExplain() {
+  if (!_llmReady || !currentResult) return;
+  await runLLMOverFunctions('explain', '関数説明', `あなたはPythonの先生。
+次の関数が何をしているかを「日本語で1行（30字以内）」で要約してください。
+形式:
+判定: [INFO]
+要点: <1行説明>`);
+}
+
+async function runLLMOverFunctions(taskKey, taskLabel, systemPrompt, filterFn) {
+  const nodes = (currentResult.nodes || []).filter(n => !filterFn || filterFn(n));
+  if (nodes.length === 0) {
+    document.getElementById('llmResults').innerHTML =
+      `<div class="llm-result-card good"><div class="header"><span class="target">対象関数なし</span></div></div>`;
+    return;
+  }
+  const progressEl = document.getElementById('llmRunProgress');
+  const progressFill = document.getElementById('llmRunProgressFill');
+  const resultsEl = document.getElementById('llmResults');
+  resultsEl.innerHTML = '';
+  progressEl.style.display = 'block';
+  progressFill.style.width = '0%';
+  const status = document.getElementById('llmTabStatus');
+
+  setLLMTaskCardsEnabled(false);
+
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    status.textContent = `${taskLabel} 実行中: ${i + 1}/${nodes.length} (${n.label})`;
+    progressFill.style.width = `${((i) / nodes.length) * 100}%`;
+    const src = extractFunctionSource(n);
+    if (!src) continue;
+    try {
+      const userPrompt = `関数名: ${n.label} (${n.file}:${n.line})\n\nコード:\n\`\`\`python\n${src}\n\`\`\``;
+      const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: taskKey === 'explain' ? 100 : 280 });
+      const parsed = parseLLMReply(reply, taskKey);
+      // 結果保存
+      if (!_llmResults[n.id]) _llmResults[n.id] = {};
+      _llmResults[n.id][taskKey] = parsed;
+      // カード表示
+      resultsEl.appendChild(buildLLMResultCard(n, parsed, taskKey, taskLabel));
+      // Inspector開いてる場合は再描画
+      if (currentInfoNode && currentInfoNode.id === n.id) showNodeInfo(n);
+    } catch (e) {
+      console.error('LLM error for', n.id, e);
+      const errCard = document.createElement('div');
+      errCard.className = 'llm-result-card bad';
+      errCard.innerHTML = `<div class="header"><span class="target">${escapeHtml(n.label)}</span><span class="severity-badge bad">ERROR</span></div><div class="reason">${escapeHtml(e.message)}</div>`;
+      resultsEl.appendChild(errCard);
+    }
+  }
+  progressFill.style.width = '100%';
+  status.textContent = `${taskLabel} 完了 (${nodes.length}件)`;
+  setLLMTaskCardsEnabled(true);
+  setTimeout(() => { progressEl.style.display = 'none'; }, 1000);
+}
+
+function parseLLMReply(text, taskKey) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let verdict = 'INFO', point = '', reason = '';
+  for (const l of lines) {
+    if (/^判定[:：]/.test(l)) {
+      const m = l.match(/\[?([A-Z_]+)\]?/);
+      if (m) verdict = m[1];
+    } else if (/^(要点|提案)[:：]/.test(l)) {
+      point = l.split(/[:：]/).slice(1).join(':').trim();
+    } else if (/^理由[:：]/.test(l)) {
+      reason = l.split(/[:：]/).slice(1).join(':').trim();
+    } else if (!point) {
+      point = l;
+    }
+  }
+  return { verdict, point, reason, raw: text };
+}
+
+function severityClassFor(verdict) {
+  if (verdict === 'BUG' || verdict === 'REFACTOR_NEEDED') return 'bad';
+  if (verdict === 'SUSPICIOUS') return 'warn';
+  return 'good';
+}
+
+function buildLLMResultCard(node, parsed, taskKey, taskLabel) {
+  const card = document.createElement('div');
+  const sev = severityClassFor(parsed.verdict);
+  card.className = 'llm-result-card ' + sev;
+  card.innerHTML = `
+    <div class="header">
+      <span class="target">${escapeHtml(node.label)}</span>
+      <span class="severity-badge ${sev}">${escapeHtml(parsed.verdict)}</span>
+      <span style="font-size:11px;color:#86868b">${escapeHtml(taskLabel)}</span>
+      <button class="show-3d-btn" type="button">→ Inspector</button>
+    </div>
+    <div class="verdict">${escapeHtml(parsed.point || parsed.raw || '(空)')}</div>
+    ${parsed.reason ? `<div class="reason">${escapeHtml(parsed.reason)}</div>` : ''}
+  `;
+  card.querySelector('.show-3d-btn').addEventListener('click', () => showNodeInfo(node));
+  return card;
+}
+
+// Inspector に LLM評価セクションを追加するためのフック
+function renderLLMSectionForNode(node) {
+  const r = _llmResults[node.id];
+  if (!r) return '';
+  const items = [];
+  if (r.bugs) {
+    const sev = severityClassFor(r.bugs.verdict);
+    items.push(`<div class="inspector-section llm-section">
+      <div class="inspector-section-title">🤖 LLM 意味バグ検出（${r.bugs.verdict}）</div>
+      <div style="font-size:12px">${escapeHtml(r.bugs.point || '')}</div>
+      ${r.bugs.reason ? `<div style="font-size:11px;color:#aaa;margin-top:4px">${escapeHtml(r.bugs.reason)}</div>` : ''}
+    </div>`);
+  }
+  if (r.refactor) {
+    items.push(`<div class="inspector-section llm-section">
+      <div class="inspector-section-title">🤖 LLM リファクタ提案（${r.refactor.verdict}）</div>
+      <div style="font-size:12px">${escapeHtml(r.refactor.point || '')}</div>
+    </div>`);
+  }
+  if (r.explain) {
+    items.push(`<div class="inspector-section llm-section">
+      <div class="inspector-section-title">🤖 LLM 関数説明</div>
+      <div style="font-size:12px">${escapeHtml(r.explain.point || '')}</div>
+    </div>`);
+  }
+  return items.join('');
+}
+
+// ========== 初期化 ==========
+
+document.addEventListener('DOMContentLoaded', () => {
+  const restored = loadFilesFromStorage();
+  if (!restored) {
+    fileList.push({
+      id: nextFileId++,
+      name: 'main.py',
+      code: '# Pythonコードをここに貼り付けてください\n# 「+ ファイルを追加」で複数ファイル対応\n\ndef hello():\n    print("Hello, world!")\n'
+    });
+  }
+  renderFileCards();
+  initEvolutionTabs();
+  initGitDropzone();
+  setLLMTaskCardsEnabled(false);  // 初期状態は無効化
+});
 
 // ========== 結果描画 ==========
 
@@ -798,15 +2612,123 @@ function kindColor(n) {
   return KIND_STYLE[n.kind].color;
 }
 
+// スコアを連続的なRGBグラデーションに（赤→橙→黄→緑）
+function scoreGradientColor(score) {
+  const s = Math.max(0, Math.min(100, score));
+  // 0=赤(#ff3b30), 50=橙(#ff9500), 75=黄(#ffd54a), 100=緑(#34c759)
+  const stops = [
+    { p: 0,   c: [255, 59, 48] },
+    { p: 50,  c: [255, 149, 0] },
+    { p: 75,  c: [255, 213, 74] },
+    { p: 100, c: [52, 199, 89] },
+  ];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const a = stops[i], b = stops[i+1];
+    if (s >= a.p && s <= b.p) {
+      const t = (s - a.p) / (b.p - a.p);
+      const r = Math.round(a.c[0] + (b.c[0] - a.c[0]) * t);
+      const g = Math.round(a.c[1] + (b.c[1] - a.c[1]) * t);
+      const bl = Math.round(a.c[2] + (b.c[2] - a.c[2]) * t);
+      return `rgb(${r},${g},${bl})`;
+    }
+  }
+  return 'rgb(52,199,89)';
+}
+
+// 強化版ノード色: kind優先（HUB/BRIDGE/DANGER/ISOLATED）、normal はスコアグラデ
+function enhancedNodeColor(n) {
+  if (n.kind === 'isolated') return KIND_STYLE.isolated.color;
+  if (n.kind === 'hub') return KIND_STYLE.hub.color;
+  if (n.kind === 'bridge') return KIND_STYLE.bridge.color;
+  if (n.kind === 'danger') return KIND_STYLE.danger.color;
+  return scoreGradientColor(n.score || 100);
+}
+
+// link の source/target がオブジェクトでもID文字列でも取れるユーティリティ
+function _linkEnd(end, nodeMap) {
+  if (typeof end === 'object' && end) return end;
+  return nodeMap[end] || null;
+}
+
+// エッジ色: 同モジュール=青、異モジュール=橙、HUB/BRIDGE通過=ハイライト
+function moduleEdgeColor(link, nodeMap) {
+  const src = _linkEnd(link.source, nodeMap);
+  const tgt = _linkEnd(link.target, nodeMap);
+  if (src && tgt) {
+    if (src.kind === 'hub' || tgt.kind === 'hub') return 'rgba(255,220,120,0.9)';
+    if (src.kind === 'bridge' || tgt.kind === 'bridge') return 'rgba(210,166,255,0.85)';
+    if (src.module && tgt.module && src.module !== tgt.module) {
+      return 'rgba(255,170,80,0.7)';   // 異モジュール（オレンジ）
+    }
+  }
+  return 'rgba(120,180,255,0.5)';        // 同モジュール（青）
+}
+
+function moduleEdgeWidth(link, nodeMap) {
+  const src = _linkEnd(link.source, nodeMap);
+  const tgt = _linkEnd(link.target, nodeMap);
+  // 呼び出し回数が多いペアは太く
+  const w = link.weight || 1;
+  let base;
+  if ((src && src.kind === 'hub') || (tgt && tgt.kind === 'hub')) base = 3;
+  else if ((src && src.kind === 'bridge') || (tgt && tgt.kind === 'bridge')) base = 2.2;
+  else if (src && tgt && src.module && tgt.module && src.module !== tgt.module) base = 1.6;
+  else base = 1.0;
+  // weight≥2 なら +0.6, ≥3 なら +1.2
+  if (w >= 3) base += 1.2;
+  else if (w >= 2) base += 0.6;
+  return base;
+}
+
+// ===== Tier 1: ノード形状をfunc_typeで切替 =====
+function buildNodeMeshFor(node) {
+  const radius = Math.max(0.6, Math.cbrt(Math.max(0.001, node.val || 4)) * 1.6);
+  const color = new THREE.Color(node.color || '#88ccff');
+  let geom;
+  const t = node.func_type || 'function';
+
+  if (node.is_entry || t === 'entry') {
+    // 八面体（エントリポイント＝目立つピラミッド双角錐）
+    geom = new THREE.OctahedronGeometry(radius * 1.3, 0);
+  } else if (t === 'async') {
+    // トーラス（async）
+    geom = new THREE.TorusGeometry(radius * 0.95, radius * 0.34, 12, 24);
+  } else if (t === 'generator') {
+    // トーラスノット（generator）
+    geom = new THREE.TorusKnotGeometry(radius * 0.7, radius * 0.22, 32, 6);
+  } else if (t === 'method') {
+    // 立方体（クラスメソッド）
+    geom = new THREE.BoxGeometry(radius * 1.45, radius * 1.45, radius * 1.45);
+  } else {
+    // 球（通常関数）
+    geom = new THREE.SphereGeometry(radius, 16, 16);
+  }
+
+  const mat = new THREE.MeshLambertMaterial({
+    color, transparent: true, opacity: 0.92,
+  });
+  const mesh = new THREE.Mesh(geom, mat);
+
+  // エントリは少し回転＋発光感（点滅は重いので静的なemissiveのみ）
+  if (node.is_entry || t === 'entry') {
+    mat.emissive = new THREE.Color('#ffaa00');
+    mat.emissiveIntensity = 0.35;
+  }
+  return mesh;
+}
+
 function initGraph3D(containerId, nodes, edges) {
   const el = document.getElementById(containerId);
   el.innerHTML = '';
 
   const classified = classifyNodes(nodes);
   const graphData = {
-    nodes: classified.map(n => ({ ...n, val: kindSize(n), color: kindColor(n) })),
+    nodes: classified.map(n => ({ ...n, val: kindSize(n), color: enhancedNodeColor(n) })),
     links: edges.map(e => ({ source: e.source, target: e.target })),
   };
+  // ID→ノード参照マップ（linkColor 等から使う）
+  const nodeMap = {};
+  graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
 
   // 3d-force-graph を先に初期化（controlType=orbit で直感的な操作に）
   const labels = {};
@@ -817,25 +2739,22 @@ function initGraph3D(containerId, nodes, edges) {
     .nodeVal(n => n.val)
     .nodeOpacity(0.92)
     .nodeResolution(24)
+    .nodeThreeObject(n => buildNodeMeshFor(n))   // Tier 1: 形状で関数の種類を表現
+    .nodeThreeObjectExtend(false)
     .onNodeClick(node => showNodeInfo(node))
     .onNodeHover(node => { el.style.cursor = node ? 'pointer' : 'grab'; })
-    .linkColor(l => {
-      // hub/bridge を通るエッジは明るく
-      const src = typeof l.source === 'object' ? l.source : null;
-      const tgt = typeof l.target === 'object' ? l.target : null;
-      if ((src && (src.kind === 'hub' || src.kind === 'bridge')) ||
-          (tgt && (tgt.kind === 'hub' || tgt.kind === 'bridge'))) {
-        return 'rgba(255,220,120,0.85)';
-      }
-      return 'rgba(120,180,255,0.5)';
+    .linkLabel(l => {
+      // Tier 3: エッジホバーで重み・モジュール跨ぎ情報を表示
+      const src = _linkEnd(l.source, nodeMap);
+      const tgt = _linkEnd(l.target, nodeMap);
+      const w = l.weight || 1;
+      const cross = src && tgt && src.module && tgt.module && src.module !== tgt.module;
+      return `<div style="font-weight:600;font-size:12px">${escapeHtml(src?.label || '?')} → ${escapeHtml(tgt?.label || '?')}</div>` +
+             `<div style="font-size:11px;color:#aaa">呼び出し回数: ${w}${w >= 2 ? '（強結合）' : ''}</div>` +
+             `<div style="font-size:11px;color:#aaa">${cross ? '異モジュール' : '同モジュール'}</div>`;
     })
-    .linkWidth(l => {
-      const src = typeof l.source === 'object' ? l.source : null;
-      const tgt = typeof l.target === 'object' ? l.target : null;
-      if ((src && src.kind === 'hub') || (tgt && tgt.kind === 'hub')) return 3;
-      if ((src && src.kind === 'bridge') || (tgt && tgt.kind === 'bridge')) return 2.2;
-      return 1.2;
-    })
+    .linkColor(l => moduleEdgeColor(l, nodeMap))
+    .linkWidth(l => moduleEdgeWidth(l, nodeMap))
     .linkOpacity(0.8)
     .linkDirectionalArrowLength(6)
     .linkDirectionalArrowRelPos(1)
@@ -850,9 +2769,11 @@ function initGraph3D(containerId, nodes, edges) {
     .linkDirectionalParticleSpeed(0.012)
     .linkDirectionalParticleWidth(2.5)
     .linkDirectionalParticleColor(l => {
-      const src = typeof l.source === 'object' ? l.source : null;
+      const src = _linkEnd(l.source, nodeMap);
+      const tgt = _linkEnd(l.target, nodeMap);
       if (src && src.kind === 'hub') return '#ffe066';
       if (src && src.kind === 'bridge') return '#d2a6ff';
+      if (src && tgt && src.module && tgt.module && src.module !== tgt.module) return '#ffaa50';
       return '#66d9ff';
     })
     .backgroundColor('rgba(0,0,0,0)')
@@ -860,8 +2781,54 @@ function initGraph3D(containerId, nodes, edges) {
     .height(600)
     ;
 
+  // 距離設計（多軸）:
+  //   異モジュール: 160（遠い）
+  //   同モジュール: 基本50
+  //     ・強結合（weight≥2）: -15
+  //     ・同じクラス内のメソッド同士: -10
+  //   下限 25（潰れ防止）
+  function _classFromQname(qname) {
+    if (!qname) return null;
+    const parts = qname.split('.');
+    if (parts.length < 3) return null;
+    return parts[parts.length - 2];  // module.Class.method の Class 部分
+  }
+  try {
+    const linkForce = graph.d3Force('link');
+    if (linkForce && typeof linkForce.distance === 'function') {
+      linkForce.distance(link => {
+        const src = _linkEnd(link.source, nodeMap);
+        const tgt = _linkEnd(link.target, nodeMap);
+        if (!src || !tgt) return 80;
+        if (src.module !== tgt.module) return 160;
+        let d = 50;
+        const w = link.weight || 1;
+        if (w >= 3) d -= 25;
+        else if (w >= 2) d -= 15;
+        const sc = _classFromQname(src.id);
+        const tc = _classFromQname(tgt.id);
+        if (sc && tc && sc === tc) d -= 10;
+        return Math.max(25, d);
+      });
+      // 強結合ペアは引っ張る力も強める
+      if (typeof linkForce.strength === 'function') {
+        linkForce.strength(link => {
+          const w = link.weight || 1;
+          if (w >= 3) return 1.0;
+          if (w >= 2) return 0.7;
+          return 0.4;
+        });
+      }
+    }
+    const chargeForce = graph.d3Force('charge');
+    if (chargeForce && typeof chargeForce.strength === 'function') {
+      chargeForce.strength(-90);
+    }
+  } catch (e) { console.warn('force config skipped', e); }
+
   // 3d-force-graph initializeの後にoverlayを追加（canvasの上に重ねる）
   addCSSStarfield(el, 180);
+  attachGraph3DLegend(el, classified);
   const labelLayer = document.createElement('div');
   labelLayer.className = 'graph-label-layer';
   el.appendChild(labelLayer);
@@ -875,13 +2842,115 @@ function initGraph3D(containerId, nodes, edges) {
   });
 
   // 毎フレームラベル位置更新（カメラ移動中も追随）
-  runLabelTracker(graph, labels, 'graph3d');
+  // containerId をキーに使うことで evolution タブと呼び出しマップで衝突しない
+  runLabelTracker(graph, labels, containerId);
 
   // コンテナサイズを graph に強制同期（canvasが勝手に伸びないよう固定）
   syncGraphSize(graph, el);
 
   setTimeout(() => graph.cameraPosition({ z: 320 }, null, 1200), 400);
-  graphs.graph3d = graph;
+  // Tier 1: モジュール凸包ハロー（同モジュールを半透明球で包む）
+  setTimeout(() => {
+    try { setupModuleHalos(graph, graphData.nodes); } catch (e) { console.warn('halo setup failed', e); }
+  }, 100);
+  // Phase D2: ノードがカテゴリ順にフェードインする初回演出
+  // evolution タブでは毎ステップ発動するとチラつくのでスキップ
+  if (containerId !== 'evo-graph-container') {
+    setTimeout(() => animateNodesReveal(graph, graphData.nodes), 200);
+  }
+  // Phase D: evolution タブと通常呼び出しマップで参照を分離
+  if (containerId === 'evo-graph-container') {
+    graphs.graph3d_evo = graph;
+  } else {
+    graphs.graph3d = graph;
+  }
+}
+
+// ===== Tier 1: モジュール凸包ハロー（同モジュールを半透明球で包む） =====
+const MODULE_HALO_PALETTE = [
+  '#3a7bff', '#ff7b3a', '#3aff9b', '#ffd24a',
+  '#b347ff', '#3affe5', '#ff3a8e', '#7aff3a',
+];
+
+function setupModuleHalos(graph, nodes) {
+  const groups = {};
+  nodes.forEach(n => {
+    const m = n.module || '_';
+    if (!groups[m]) groups[m] = [];
+    groups[m].push(n);
+  });
+
+  const halos = [];
+  let ci = 0;
+  for (const [mod, group] of Object.entries(groups)) {
+    if (group.length < 2) continue;  // 単独ノードはハロー不要
+    const color = MODULE_HALO_PALETTE[ci % MODULE_HALO_PALETTE.length];
+    ci++;
+    const geom = new THREE.SphereGeometry(20, 24, 24);
+    const mat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.07,
+      side: THREE.BackSide, depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    halos.push({ mesh, group, mod, color });
+    graph.scene().add(mesh);
+  }
+
+  // engine tick で位置・サイズ更新（重心と最大距離）
+  const prevTick = graph.onEngineTick.bind(graph);
+  graph.onEngineTick(() => {
+    halos.forEach(h => {
+      let cx = 0, cy = 0, cz = 0, n = 0;
+      h.group.forEach(node => {
+        if (typeof node.x === 'number') {
+          cx += node.x; cy += node.y; cz += node.z; n++;
+        }
+      });
+      if (!n) return;
+      cx /= n; cy /= n; cz /= n;
+      let maxD = 1;
+      h.group.forEach(node => {
+        if (typeof node.x === 'number') {
+          const d = Math.hypot(node.x - cx, node.y - cy, node.z - cz);
+          if (d > maxD) maxD = d;
+        }
+      });
+      h.mesh.position.set(cx, cy, cz);
+      h.mesh.scale.setScalar(Math.max(8, maxD + 10));
+    });
+  });
+
+  return halos;
+}
+
+// Phase D2: 解析直後の段階的フェードイン（カスタム Mesh の scale を直接操作）
+function animateNodesReveal(graph, nodes) {
+  const order = ['isolated', 'normal', 'bridge', 'danger', 'hub'];
+  // 全ノードを一旦小さく（scale=0.05）
+  nodes.forEach(n => {
+    if (n.__threeObj) n.__threeObj.scale.setScalar(0.05);
+  });
+
+  let delay = 200;
+  order.forEach(kind => {
+    const grp = nodes.filter(n => n.kind === kind);
+    if (grp.length === 0) return;
+    setTimeout(() => {
+      let phase = 0;
+      const phases = 10;
+      const intvl = setInterval(() => {
+        phase++;
+        const t = phase / phases;
+        const eased = 1 - Math.pow(1 - t, 3);  // ease-out cubic
+        const scale = Math.max(0.05, eased);
+        grp.forEach(n => {
+          if (n.__threeObj) n.__threeObj.scale.setScalar(scale);
+        });
+        if (phase >= phases) clearInterval(intvl);
+      }, 35);
+    }, delay);
+    delay += 350;
+  });
 }
 
 function syncGraphSize(graph, el) {
@@ -944,6 +3013,135 @@ function runLabelTracker(graph, labels, key) {
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
+}
+
+function attachImports3DLegend(container, modules) {
+  const old = container.querySelector('.graph-legend');
+  if (old) old.remove();
+  const legend = document.createElement('div');
+  legend.className = 'graph-legend';
+  legend.innerHTML = `
+    <div class="legend-header" title="クリックで折りたたみ">
+      <span>📖 凡例</span>
+      <span class="toggle">▾</span>
+    </div>
+    <div class="legend-body">
+      <div class="legend-section">
+        <div class="legend-section-title">モジュールスコア</div>
+        <div class="legend-grad"></div>
+        <div class="legend-grad-labels"><span>0 危険</span><span>50</span><span>75</span><span>100 健康</span></div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">エッジ</div>
+        <div class="legend-row"><span class="legend-line" style="background:rgba(255,170,80,0.85)"></span>import 関係</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">サイズ</div>
+        <div style="font-size:10px;color:#aaa">大きい = ファイル行数多</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">合計</div>
+        <div style="font-size:10px;color:#aaa">${modules.length} モジュール</div>
+      </div>
+    </div>
+  `;
+  legend.querySelector('.legend-header').addEventListener('click', () => {
+    legend.classList.toggle('collapsed');
+    const t = legend.querySelector('.toggle');
+    t.textContent = legend.classList.contains('collapsed') ? '▸' : '▾';
+  });
+  container.appendChild(legend);
+}
+
+function attachGraph3DLegend(container, classified) {
+  // 既存の凡例を削除（再描画時の重複防止）
+  const old = container.querySelector('.graph-legend');
+  if (old) old.remove();
+
+  // 種別カウント
+  const counts = { hub: 0, bridge: 0, danger: 0, isolated: 0, normal: 0 };
+  const modules = new Set();
+  classified.forEach(n => {
+    counts[n.kind] = (counts[n.kind] || 0) + 1;
+    if (n.module) modules.add(n.module);
+  });
+
+  const legend = document.createElement('div');
+  legend.className = 'graph-legend';
+  legend.innerHTML = `
+    <div class="legend-header" title="クリックで折りたたみ">
+      <span>📖 凡例</span>
+      <span class="toggle">▾</span>
+    </div>
+    <div class="legend-body">
+      <div class="legend-section">
+        <div class="legend-section-title">ノード形状（種類）</div>
+        <div class="legend-row"><span class="legend-shape shape-sphere"></span>● 関数</div>
+        <div class="legend-row"><span class="legend-shape shape-cube"></span>■ クラスメソッド</div>
+        <div class="legend-row"><span class="legend-shape shape-torus"></span>○ async（非同期）</div>
+        <div class="legend-row"><span class="legend-shape shape-knot"></span>⚯ generator（yield）</div>
+        <div class="legend-row"><span class="legend-shape shape-octa"></span>◆ entry（main / __main__ 内呼び出し）</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">ノード色（役割）</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#ffd54a"></span>HUB（中枢）${counts.hub ? `・${counts.hub}件` : ''}</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#b879ff"></span>BRIDGE（媒介）${counts.bridge ? `・${counts.bridge}件` : ''}</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#ff5b5b"></span>DANGER（要改善）${counts.danger ? `・${counts.danger}件` : ''}</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#7c7c8a"></span>孤立（未使用）${counts.isolated ? `・${counts.isolated}件` : ''}</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">通常ノードのスコア</div>
+        <div class="legend-grad"></div>
+        <div class="legend-grad-labels"><span>0 危険</span><span>50</span><span>75</span><span>100 健康</span></div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">エッジ色（呼び出し関係）</div>
+        <div class="legend-row"><span class="legend-line" style="background:rgba(120,180,255,0.7)"></span>同モジュール内</div>
+        <div class="legend-row"><span class="legend-line" style="background:rgba(255,170,80,0.85)"></span>異モジュール間</div>
+        <div class="legend-row"><span class="legend-line" style="background:rgba(255,220,120,0.95)"></span>HUB通過</div>
+        <div class="legend-row"><span class="legend-line" style="background:rgba(210,166,255,0.9)"></span>BRIDGE通過</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">エッジの長さ（多軸）</div>
+        <div class="legend-row"><span class="legend-line" style="background:#7ab8ff;width:8px"></span>同クラス内メソッド（25-40）</div>
+        <div class="legend-row"><span class="legend-line" style="background:#7ab8ff;width:14px"></span>同モジュール・強結合（35）</div>
+        <div class="legend-row"><span class="legend-line" style="background:#7ab8ff;width:20px"></span>同モジュール・通常（50）</div>
+        <div class="legend-row"><span class="legend-line" style="background:#ffaa50;width:30px"></span>異モジュール間（160）</div>
+        <div style="font-size:10px;color:#aaa;margin-top:4px">短い=強結合 or 同クラス、長い=弱結合 or 跨ぎ呼び出し</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">エッジの太さ</div>
+        <div class="legend-row"><span class="legend-line" style="background:#ffd54a;height:5px"></span>HUB通過（太3）</div>
+        <div class="legend-row"><span class="legend-line" style="background:#d2a6ff;height:4px"></span>BRIDGE通過（中2.2）</div>
+        <div class="legend-row"><span class="legend-line" style="background:#ffaa50;height:3px"></span>異モジュール間（中1.6）</div>
+        <div class="legend-row"><span class="legend-line" style="background:#7ab8ff;height:2px"></span>同モジュール内（細1.0）</div>
+        <div style="font-size:10px;color:#aaa;margin-top:4px">同じペアを2回以上呼ぶと +0.6〜1.2 太く（強結合）</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">ノードのサイズ</div>
+        <div style="font-size:10px;color:#aaa">大きい = 重要（PageRank・呼ばれ回数の合算）</div>
+      </div>
+      ${modules.size > 0 ? (() => {
+        // モジュール一覧 + ハロー色対応
+        const modList = [...modules].slice(0, 10);  // 多すぎる場合は10個まで
+        const rows = modList.map((m, i) => {
+          const c = MODULE_HALO_PALETTE[i % MODULE_HALO_PALETTE.length];
+          const short = m.split('.').pop() || m;
+          return `<div class="legend-module-row"><span class="legend-module-color" style="background:${c}"></span>${escapeHtml(short)}</div>`;
+        }).join('');
+        const more = modules.size > 10 ? `<div style="font-size:9px;color:#777">+ ${modules.size - 10} 件</div>` : '';
+        return `<div class="legend-section"><div class="legend-section-title">モジュール（${modules.size} ファイル / ${classified.length} 関数）</div><div class="legend-module-list">${rows}${more}</div><div style="font-size:10px;color:#aaa;margin-top:4px">同色の半透明球で領域表示</div></div>`;
+      })() : ''}
+    </div>
+  `;
+  // 折りたたみトグル
+  legend.querySelector('.legend-header').addEventListener('click', () => {
+    legend.classList.toggle('collapsed');
+    const t = legend.querySelector('.toggle');
+    t.textContent = legend.classList.contains('collapsed') ? '▸' : '▾';
+  });
+
+  container.appendChild(legend);
 }
 
 function addCSSStarfield(container, count) {
@@ -1023,7 +3221,10 @@ function initImports3D(containerId, modules, moduleEdges) {
       id: m.name,
       label: m.name.split('.').pop(),
       val: Math.max(6, m.lines / 50),
-      color: m.score >= 80 ? '#34c759' : m.score >= 60 ? '#ff9500' : '#ff3b30',
+      color: scoreGradientColor(m.score || 100),
+      score: m.score,
+      lines: m.lines,
+      n_functions: m.n_functions,
     })),
     links: (moduleEdges || []).map(e => ({ source: e.source, target: e.target })),
   };
@@ -1031,12 +3232,12 @@ function initImports3D(containerId, modules, moduleEdges) {
   const labels = {};
   const graph = ForceGraph3D({ controlType: 'orbit' })(el)
     .graphData(graphData)
-    .nodeLabel(n => `<div style="font-weight:600">${escapeHtml(n.label)}</div>`)
+    .nodeLabel(n => `<div style="font-weight:600">${escapeHtml(n.label)}</div><div style="font-size:11px;color:#aaa">スコア ${n.score} / ${n.n_functions || 0}関数 / ${n.lines || 0}行</div>`)
     .nodeColor(n => n.color)
     .nodeVal(n => n.val)
     .nodeOpacity(0.92)
     .nodeResolution(24)
-    .linkColor(() => 'rgba(160,220,255,0.7)')
+    .linkColor(() => 'rgba(255,170,80,0.75)')
     .linkWidth(2)
     .linkOpacity(0.85)
     .linkDirectionalArrowLength(6)
@@ -1044,13 +3245,14 @@ function initImports3D(containerId, modules, moduleEdges) {
     .linkDirectionalParticles(3)
     .linkDirectionalParticleSpeed(0.012)
     .linkDirectionalParticleWidth(2.5)
-    .linkDirectionalParticleColor(() => '#66d9ff')
+    .linkDirectionalParticleColor(() => '#ffaa50')
     .backgroundColor('rgba(0,0,0,0)')
     .width(el.offsetWidth)
     .height(400)
     ;
 
   addCSSStarfield(el, 120);
+  attachImports3DLegend(el, modules);
   const labelLayer = document.createElement('div');
   labelLayer.className = 'graph-label-layer';
   el.appendChild(labelLayer);
@@ -1163,23 +3365,197 @@ function closeSourceModal() {
 // ========== ノード情報パネル ==========
 
 let currentInfoNode = null;
+// ===== Tier 3: Inspector パネル（クリックでリッチ表示） =====
 function showNodeInfo(node) {
+  if (!node) return;
   currentInfoNode = node;
-  const panel = document.getElementById('nodeInfoPanel');
-  const body = document.getElementById('nodeInfoBody');
-  body.innerHTML = buildNodeTooltip(node);
-  panel.style.display = 'block';
+  document.getElementById('inspectorTitle').textContent = node.label || node.id;
+  document.getElementById('inspectorBody').innerHTML = renderInspectorContent(node);
+  document.getElementById('inspectorPanel').classList.add('open');
+  document.body.classList.add('inspector-open');
 }
-function closeNodeInfo() {
-  document.getElementById('nodeInfoPanel').style.display = 'none';
+function closeInspector() {
+  document.getElementById('inspectorPanel').classList.remove('open');
+  document.body.classList.remove('inspector-open');
   currentInfoNode = null;
 }
+// 旧パネルの互換用
+function closeNodeInfo() { closeInspector(); }
 function openSourceFromInfo() {
   if (currentInfoNode) showSourceModal(currentInfoNode);
 }
 
+function escapeAttr(s) {
+  return String(s).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+}
+
+function renderInspectorContent(node) {
+  const tags = [];
+  if (node.kind === 'hub') tags.push({label: '🟡 HUB', cls: ''});
+  if (node.kind === 'bridge') tags.push({label: '🟣 BRIDGE', cls: ''});
+  if (node.kind === 'danger') tags.push({label: '🔴 DANGER', cls: 'danger'});
+  if (node.is_isolated) tags.push({label: '⚫ 孤立', cls: 'warn'});
+  if (node.func_type === 'entry') tags.push({label: '◆ entry', cls: ''});
+  if (node.func_type === 'async') tags.push({label: '○ async', cls: ''});
+  if (node.func_type === 'generator') tags.push({label: '⚯ generator', cls: ''});
+  if (node.func_type === 'method') tags.push({label: '■ method', cls: ''});
+  if (node.is_private) tags.push({label: '_private', cls: ''});
+  if (node.docstring) tags.push({label: '📖 doc', cls: ''});
+  (node.decorators || []).forEach(d => tags.push({label: '@' + d, cls: ''}));
+
+  const tagsHtml = tags.length > 0 ? `
+    <div class="inspector-section">
+      <div class="inspector-tags">
+        ${tags.map(t => `<span class="inspector-tag ${t.cls}">${escapeHtml(t.label)}</span>`).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  const endLine = node.line && node.lines ? node.line + node.lines - 1 : node.line;
+  const locHtml = node.file ? `
+    <div class="inspector-section">
+      <div class="inspector-section-title">場所</div>
+      <div class="inspector-loc">
+        <span>📄 ${escapeHtml(node.file)} L${node.line}-${endLine || node.line}</span>
+        <button class="inspector-loc-link" onclick="gotoDefinition('${escapeAttr(node.file)}', ${node.line || 1})">→ ジャンプ</button>
+      </div>
+    </div>
+  ` : '';
+
+  const score = node.score ?? 100;
+  const scoreCls = score >= 80 ? 'good' : score >= 60 ? 'warn' : 'bad';
+  const cogCls = (node.cognitive || 0) > 15 ? 'bad' : (node.cognitive || 0) > 10 ? 'warn' : '';
+  const secCls = (node.security || 0) > 0 ? 'bad' : '';
+  const cmpCls = (node.complexity || 0) > 10 ? 'bad' : (node.complexity || 0) > 6 ? 'warn' : '';
+
+  const metricsHtml = `
+    <div class="inspector-section">
+      <div class="inspector-section-title">メトリクス</div>
+      <div class="inspector-meta-grid">
+        <div class="inspector-meta-item"><span class="k">スコア</span><span class="v ${scoreCls}">${score}/100</span></div>
+        <div class="inspector-meta-item"><span class="k">行数</span><span class="v">${node.lines || 0}</span></div>
+        <div class="inspector-meta-item"><span class="k">複雑度</span><span class="v ${cmpCls}">${node.complexity || 0}</span></div>
+        <div class="inspector-meta-item"><span class="k">認知的</span><span class="v ${cogCls}">${node.cognitive || 0}</span></div>
+        <div class="inspector-meta-item"><span class="k">引数数</span><span class="v">${node.n_args || 0}</span></div>
+        <div class="inspector-meta-item"><span class="k">負債(分)</span><span class="v">${node.debt_min || 0}</span></div>
+        <div class="inspector-meta-item"><span class="k">呼ばれ in</span><span class="v">${node.in_degree || 0}</span></div>
+        <div class="inspector-meta-item"><span class="k">呼ぶ out</span><span class="v">${node.out_degree || 0}</span></div>
+        <div class="inspector-meta-item"><span class="k">PageRank</span><span class="v">${((node.pagerank || 0) * 100).toFixed(2)}%</span></div>
+        <div class="inspector-meta-item"><span class="k">媒介性</span><span class="v">${((node.betweenness || 0) * 100).toFixed(2)}%</span></div>
+        <div class="inspector-meta-item"><span class="k">影響範囲</span><span class="v">${node.impact || 0} 関数</span></div>
+        <div class="inspector-meta-item"><span class="k">セキュリティ</span><span class="v ${secCls}">${node.security || 0} 件</span></div>
+      </div>
+    </div>
+  `;
+
+  const callersHtml = renderInspectorCallList(node, '呼び出し元 (caller)', 'in');
+  const calleesHtml = renderInspectorCallList(node, '呼び出し先 (callee)', 'out');
+
+  const sourceCode = extractFunctionSource(node);
+  const sourceHtml = sourceCode ? `
+    <div class="inspector-section">
+      <div class="inspector-section-title">ソース実体</div>
+      <div class="inspector-source">${escapeHtml(sourceCode)}</div>
+    </div>
+  ` : '';
+
+  // Phase E: LLM評価結果が既にあれば表示
+  const llmHtml = (typeof renderLLMSectionForNode === 'function')
+    ? renderLLMSectionForNode(node) : '';
+
+  return tagsHtml + locHtml + llmHtml + metricsHtml + callersHtml + calleesHtml + sourceHtml;
+}
+
+function renderInspectorCallList(node, title, direction) {
+  if (!currentResult) return '';
+  const edges = currentResult.edges || [];
+  const list = direction === 'in'
+    ? edges.filter(e => e.target === node.id).map(e => ({ id: e.source, weight: e.weight || 1 }))
+    : edges.filter(e => e.source === node.id).map(e => ({ id: e.target, weight: e.weight || 1 }));
+  if (list.length === 0) {
+    return `
+      <div class="inspector-section">
+        <div class="inspector-section-title">${title}</div>
+        <div style="font-size:11px;color:#666">なし</div>
+      </div>
+    `;
+  }
+  const nodeMap = {};
+  (currentResult.nodes || []).forEach(n => { nodeMap[n.id] = n; });
+  const items = list.map(t => {
+    const n = nodeMap[t.id];
+    if (!n) return '';
+    const wBadge = t.weight > 1 ? `<span class="badge-mini">×${t.weight}</span>` : '';
+    const idStr = JSON.stringify(t.id).replace(/'/g, '&#39;');
+    return `<div class="inspector-list-item" onclick='showNodeById(${idStr})'>
+      ${escapeHtml(n.label)} ${wBadge}
+    </div>`;
+  }).join('');
+  return `
+    <div class="inspector-section">
+      <div class="inspector-section-title">${title}（${list.length}件）</div>
+      <div class="inspector-list">${items}</div>
+    </div>
+  `;
+}
+
+function showNodeById(id) {
+  if (!currentResult) return;
+  const n = (currentResult.nodes || []).find(x => x.id === id);
+  if (n) showNodeInfo(n);
+}
+
+function extractFunctionSource(node) {
+  if (!node.file || !node.line) return null;
+  const baseName = node.file.replace(/^.*[\/\\]/, '');
+  const file = (typeof fileList !== 'undefined')
+    ? fileList.find(f => f.name === node.file || f.name === baseName)
+    : null;
+  let source = file?.code || '';
+  if (!source && window.lastSource) {
+    const marker = `# ===== ${node.file} =====`;
+    const idx = window.lastSource.indexOf(marker);
+    if (idx >= 0) {
+      const start = idx + marker.length + 1;
+      const next = window.lastSource.indexOf('# =====', start);
+      source = window.lastSource.slice(start, next > 0 ? next : undefined);
+    }
+  }
+  if (!source) return null;
+  const lines = source.split('\n');
+  const start = (node.line || 1) - 1;
+  const end = Math.min(lines.length, start + (node.lines || 1));
+  return lines.slice(start, end).join('\n');
+}
+
+function gotoDefinition(filename, line) {
+  const baseName = filename.replace(/^.*[\/\\]/, '');
+  const cards = document.querySelectorAll('#fileList .file-card');
+  let target = null;
+  cards.forEach(c => {
+    const name = c.querySelector('.file-name-input')?.value || '';
+    if (name === filename || name === baseName) target = c;
+  });
+  if (!target) {
+    alert(`ファイルが見つかりません: ${filename}`);
+    return;
+  }
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.classList.add('highlight-jump');
+  setTimeout(() => target.classList.remove('highlight-jump'), 1500);
+  const ta = target.querySelector('.file-code-input');
+  if (ta && line) {
+    ta.focus();
+    const all = ta.value.split('\n');
+    const before = all.slice(0, line - 1).join('\n');
+    const lineStart = before.length + (line > 1 ? 1 : 0);
+    const lineEnd = lineStart + (all[line - 1] || '').length;
+    ta.setSelectionRange(lineStart, lineEnd);
+  }
+}
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeSourceModal(); closeNodeInfo(); }
+  if (e.key === 'Escape') { closeSourceModal(); closeInspector(); }
 });
 
 // 初回ロード時にPyodideを事前起動（UX向上）
