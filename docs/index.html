@@ -3159,26 +3159,27 @@ function moduleEdgeWidth(link, nodeMap) {
 
 // ===== Tier 1: ノード形状をfunc_typeで切替 =====
 function buildNodeMeshFor(node) {
-  const radius = Math.max(0.6, Math.cbrt(Math.max(0.001, node.val || 4)) * 1.6);
+  // ベース半径を大幅拡大（旧 1.6倍 → 3.5倍、最小 0.6 → 2.5）
+  const radius = Math.max(2.5, Math.cbrt(Math.max(0.001, node.val || 4)) * 3.5);
   const color = new THREE.Color(node.color || '#88ccff');
   let geom;
   const t = node.func_type || 'function';
 
   if (node.is_entry || t === 'entry') {
     // 八面体（エントリポイント＝目立つピラミッド双角錐）
-    geom = new THREE.OctahedronGeometry(radius * 1.3, 0);
+    geom = new THREE.OctahedronGeometry(radius * 1.4, 0);
   } else if (t === 'async') {
     // トーラス（async）
-    geom = new THREE.TorusGeometry(radius * 0.95, radius * 0.34, 12, 24);
+    geom = new THREE.TorusGeometry(radius * 1.0, radius * 0.36, 16, 32);
   } else if (t === 'generator') {
     // トーラスノット（generator）
-    geom = new THREE.TorusKnotGeometry(radius * 0.7, radius * 0.22, 32, 6);
+    geom = new THREE.TorusKnotGeometry(radius * 0.85, radius * 0.28, 48, 8);
   } else if (t === 'method') {
     // 立方体（クラスメソッド）
-    geom = new THREE.BoxGeometry(radius * 1.45, radius * 1.45, radius * 1.45);
+    geom = new THREE.BoxGeometry(radius * 1.6, radius * 1.6, radius * 1.6);
   } else {
     // 球（通常関数）
-    geom = new THREE.SphereGeometry(radius, 16, 16);
+    geom = new THREE.SphereGeometry(radius, 20, 20);
   }
 
   const mat = new THREE.MeshLambertMaterial({
@@ -3494,7 +3495,8 @@ function runLabelTracker(graph, labels, key) {
       const p = mesh.position;
       const c = graph.graph2ScreenCoords(p.x, p.y, p.z);
       const node = mesh.__data || {};
-      const radius = Math.cbrt(node.val || 4) * 4 + 6;
+      // buildNodeMeshFor の radius (cbrt(val)*3.5) + 形状余白 + ラベル間隔
+      const radius = Math.cbrt(node.val || 4) * 7 + 10;
       lbl.style.transform = `translate(-50%, -100%) translate(${c.x}px, ${c.y - radius}px)`;
       const dx = p.x - cam.position.x, dy = p.y - cam.position.y, dz = p.z - cam.position.z;
       const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
