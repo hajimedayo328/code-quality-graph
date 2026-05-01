@@ -2553,9 +2553,12 @@ async function runLLMTaskProject() {
 3. 🚨ISOLATED や 🔓SEC があるのに SUSPICIOUS を空にする
 4. プロジェクト目的に明らかに不要な機能（評価/集計/シェル/eval等）があるのに見逃す
 5. SUSPICIOUS / MISSING に "None" だけ書く（該当ゼロでも理由を1文で説明）
-6. **入力の関数 label（"add_stock"等）を勝手に改変すること**（"add_stock__" や "Inventory.add_stock" と勝手に補完しない、サマリーに書いてある通りの label を使う）
-7. ダンダーメソッド（__init__ 等、サマリーで [dunder] フラグ付き）を SUSPICIOUS に入れる
-8. **🔓SEC フラグ付きの関数を見逃す**（強制 SUSPICIOUS 候補リストに必ず含めること）
+6. **入力の関数 label を勝手に改変**（"add_stock__" や "Inventory.add_stock" と補完しない、サマリーの通り使う）
+7. ダンダーメソッド（[dunder] フラグ付き）を SUSPICIOUS に入れる
+8. **🔓SEC フラグ付きの関数を1個でも見逃す**（複数あれば全部書く、1個拾って満足するな）
+9. **CONTRIBUTING を 1〜2個で止める**（22関数中、最低3個は貢献してるはず。雑に絞り込みすぎ）
+10. **MISSING を空 or 1個で止める**（永続化・バリデーション・エラー処理・テスト・ロギング・統合漏れ等、複数の観点から最低2個）
+11. **SUMMARY で言及した問題を MISSING/SUSPICIOUS で省略**（要点で挙げたなら必ず該当セクションに具体記載）
 
 【出力形式】
 
@@ -2564,15 +2567,18 @@ async function runLLMTaskProject() {
 要点: <1〜2文で全体評価>
 
 ==CONTRIBUTING==
-（目的に貢献している関数、最大5個）
+（目的に貢献している関数、**最低3個・最大5個**。1〜2個で止めるな）
 - <実関数名>: <寄与説明 15〜40字>
 
 ==SUSPICIOUS==
-（目的と無関係/逆効果に見える関数。🚨ISOLATED や 🔓SEC があれば必ず候補に。最大5個）
+（目的と無関係/逆効果に見える関数。最大5個）
+**【★絶対ルール】「強制取り上げ候補」リストにある 🔓SEC 関数は1つも省略せず全て列挙すること。
+2個あれば2行、3個あれば3行書く。1個拾って満足するな。**
 - <実関数名>: <なぜ怪しいか・該当フラグも引用>
 
 ==MISSING==
-（目的達成に必要だが見当たらない処理、最大3個。例: 永続化/バリデーション/エラー処理/テスト）
+（最低2個・最大3個。永続化/バリデーション/エラー処理/テストの欠落、
+中核 ISOLATED 関数の呼び出し漏れ等。SUMMARY で言及したものは必ずここにも記載）
 - <機能のキーワード>: <なぜ必要か>
 
 【良い例】
@@ -2597,7 +2603,7 @@ async function runLLMTaskProject() {
       `${summary}\n\n` +
       `上記を元に、上の【出力形式】に従って判定してください。\n` +
       `特に冒頭の「強制 SUSPICIOUS 候補」は必ず取り上げること。`;
-    const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: 600, temperature: 0.4 });
+    const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: 900, temperature: 0.4 });
 
     // 結果カード（プロジェクト整合性は1枚の大きいカード）
     const card = document.createElement('div');
