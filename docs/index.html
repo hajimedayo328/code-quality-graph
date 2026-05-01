@@ -2292,6 +2292,7 @@ async function llmAsk(systemPrompt, userPrompt, opts = {}) {
   const finalSystem = systemPrompt +
     `\n\n【厳守】回答はすべて${lang}で。指定の形式以外の文章を生成しない。` +
     '同じ文を繰り返さない。各キーは1回だけ書く。' +
+    'confidence は 1〜99 の範囲で出すこと（100 と 0 は禁止、AI判定で絶対確信は不誠実）。' +
     (isReasoningModel
       ? '思考過程の出力は最小限に。<think> タグを使う場合は短くまとめ、必ず </think> で閉じてから本回答を書くこと。'
       : '回答は最大8行で完結させる。');
@@ -2415,21 +2416,34 @@ reason: -`);
 
 async function runLLMTaskSmells() {
   if (!_llmReady || !currentResult) return;
-  await runLLMOverFunctions('smells', 'コードスメル深堀', `あなたはPythonコードレビューア。
-静的解析が拾えないスメルを指摘してください。観点:
-  bad_naming: 変数/関数名が意味不明（x, tmp, data2 等）
-  poor_abstraction: 抽象度がバラバラ・粒度がおかしい
-  lying_comment: コメントと実装が食い違う
-  god_function: 1つの関数で多すぎることをやってる
-  unclear_intent: 何をしたいのか読み取れない
-  copy_paste: 似たコードの貼り付けが目立つ
-  none: 問題なし
+  await runLLMOverFunctions('smells', 'コードスメル深堀', `あなたはPythonコードレビューア。静的解析が拾えないスメルだけを厳しく検出する。
+
+【超重要：偽陽性回避】
+- スメルが見当たらない関数は迷わず verdict=OK にする。「何か言わなきゃ」で
+  無理矢理ケチをつけるのは厳禁。
+- 「目的が不明確」「コメントが必要」のような曖昧な指摘は禁止。
+  コードと関数名から十分意図が読めるなら verdict=OK。
+- 短い関数（10行以下）で命名・実装が一致してれば原則 OK。
+- 確信度70%未満なら必ず verdict=OK にする（自信がない指摘は無価値）。
+- 確信度 100 は禁止（最大99）。AI判定で 100% 確信は不誠実。
+
+【検出すべきスメル】（はっきり該当する場合のみ）
+  bad_naming: 変数名 x/tmp/data2 等、誰が見ても意味不明
+  poor_abstraction: 抽象レベルが極端にバラバラ（例: 1関数内で文字列処理とDB操作とログ出力）
+  lying_comment: コメントが実装と明確に矛盾（例: コメント「足し算」、実装は引き算）
+  god_function: 30行超で 5つ以上の独立した責務を持つ
+  unclear_intent: 関数名・引数・戻り値・docstring が全て曖昧で、コードを読んでも何のためかわからない
+  copy_paste: ほぼ同じパターンが3回以上同関数内で繰り返されている
+  none: 上記いずれにも明確に該当しない
+
+【出力形式】（同じキーは1回だけ）
 verdict: SMELL_FOUND / OK
-confidence: 0-100
-bug_class: <上記から1つ>
-point: 1〜2文の要点
-reason: 該当箇所の引用
-日本語で簡潔に。`);
+confidence: 0-99 の整数（70未満なら verdict=OK にする）
+bug_class: <上記から1つ。OK なら none>
+point: SMELL_FOUND の場合は1〜2文で具体的問題。OK の場合は「<実装名・命名・抽象度>の点で適切」のように肯定理由を1文。
+reason: SMELL_FOUND の場合のみ該当箇所の具体引用。OK なら「-」。
+
+日本語、簡潔、繰り返し禁止。`);
 }
 
 // === プロジェクト整合性判定（全関数を「目次」化して1リクエストで判定） ===
@@ -2836,6 +2850,8 @@ function parseLLMReply(text, taskKey) {
     else if (verdict === 'OK') confidence = 80;
     else confidence = 50;
   }
+  // 100 / 0 はキャップ（AI判定で絶対確信は不誠実）
+  confidence = Math.max(1, Math.min(99, confidence));
   return { verdict, confidence, bugClass, point, reason, raw: text };
 }
 
