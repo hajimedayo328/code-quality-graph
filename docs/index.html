@@ -855,7 +855,10 @@ tr:hover td { background: #f9f9fb; }
       </div>
 
       <div id="tab-graph" class="tab-content">
-        <div class="section-desc">丸 = 関数、線 = 呼び出し関係。大きい丸ほど重要度が高い。ホバーで詳細、クリックでソースへジャンプ</div>
+        <div class="section-desc">
+          丸 = 関数、線 = 呼び出し関係。大きい丸ほど重要度が高い。ホバーで詳細、クリックで Inspector パネル。
+          <button class="btn" type="button" onclick="toggleModuleHalos()" style="margin-left:12px;padding:4px 10px;font-size:11px" title="同モジュールを半透明球で囲むハロー表示の ON/OFF">📦 モジュールハロー切替</button>
+        </div>
         <div class="graph-box">
           <div id="graph3d-container"></div>
         </div>
@@ -2273,6 +2276,49 @@ async function runLLMTaskExplain() {
 要点: <1行説明>`);
 }
 
+// doctest を「期待挙動の例」として抽出（LLMプロンプト用）
+function extractDoctestsFromSource(src) {
+  if (!src) return '';
+  const lines = src.split('\n');
+  const blocks = [];
+  let cur = null;
+  for (const line of lines) {
+    const m = line.match(/^\s*>>>\s?(.*)$/);
+    if (m) {
+      if (cur) blocks.push(cur);
+      cur = { source: m[1], want: [] };
+    } else if (cur) {
+      // 次の >>> または空行 まで want に蓄積
+      const stripped = line.trim();
+      if (!stripped || /^\s*"""/.test(line)) {
+        if (cur.want.length || cur.source) blocks.push(cur);
+        cur = null;
+      } else {
+        cur.want.push(stripped);
+      }
+    }
+  }
+  if (cur) blocks.push(cur);
+  return blocks.map(b => `>>> ${b.source}\n${b.want.join('\n')}`).join('\n');
+}
+
+// 関数の「意図メモ」（ユーザーが Inspector で書いた内容、localStorage 永続）
+const INTENT_KEY = 'cqg_intents_v1';
+function getIntent(nodeId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(INTENT_KEY) || '{}');
+    return all[nodeId] || '';
+  } catch (e) { return ''; }
+}
+function setIntent(nodeId, text) {
+  try {
+    const all = JSON.parse(localStorage.getItem(INTENT_KEY) || '{}');
+    if (text && text.trim()) all[nodeId] = text.trim();
+    else delete all[nodeId];
+    localStorage.setItem(INTENT_KEY, JSON.stringify(all));
+  } catch (e) { /* ignore */ }
+}
+
 async function runLLMOverFunctions(taskKey, taskLabel, systemPrompt, filterFn) {
   const nodes = (currentResult.nodes || []).filter(n => !filterFn || filterFn(n));
   if (nodes.length === 0) {
@@ -2297,7 +2343,21 @@ async function runLLMOverFunctions(taskKey, taskLabel, systemPrompt, filterFn) {
     const src = extractFunctionSource(n);
     if (!src) continue;
     try {
-      const userPrompt = `関数名: ${n.label} (${n.file}:${n.line})\n\nコード:\n\`\`\`python\n${src}\n\`\`\``;
+      // 期待挙動の手がかりを集める：doctest と ユーザー意図メモ
+      const doctestsBlock = extractDoctestsFromSource(src);
+      const intent = getIntent(n.id);
+      let intentSection = '';
+      if (intent) {
+        intentSection += `\n\n【期待される挙動（ユーザー指定）】\n${intent}`;
+      }
+      if (doctestsBlock) {
+        intentSection += `\n\n【期待される挙動（doctest）】\n${doctestsBlock}\n→ コードの実装が doctest と矛盾していないか必ず確認すること`;
+      }
+      if (!intent && !doctestsBlock) {
+        intentSection += `\n\n【期待される挙動】明示なし。関数名・docstringから推測してください。「意図不明」と感じたら verdict=SUSPICIOUS にし、reason に「意図メモ or doctest を追加してください」と書く。`;
+      }
+
+      const userPrompt = `関数名: ${n.label} (${n.file}:${n.line})\n\nコード:\n\`\`\`python\n${src}\n\`\`\`${intentSection}`;
       const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: taskKey === 'explain' ? 100 : 280 });
       const parsed = parseLLMReply(reply, taskKey);
       // 結果保存
@@ -2909,6 +2969,10 @@ const MODULE_HALO_PALETTE = [
 ];
 
 function setupModuleHalos(graph, nodes) {
+  // ユーザー設定：ハローを表示するか（localStorage で永続化）
+  const haloEnabled = localStorage.getItem('cqg_halo_enabled') !== '0';
+  if (!haloEnabled) return [];
+
   const groups = {};
   nodes.forEach(n => {
     const m = n.module || '_';
@@ -2919,12 +2983,13 @@ function setupModuleHalos(graph, nodes) {
   const halos = [];
   let ci = 0;
   for (const [mod, group] of Object.entries(groups)) {
-    if (group.length < 2) continue;  // 単独ノードはハロー不要
+    if (group.length < 2) continue;
     const color = MODULE_HALO_PALETTE[ci % MODULE_HALO_PALETTE.length];
     ci++;
     const geom = new THREE.SphereGeometry(20, 24, 24);
+    // 透明度を下げ、深度書き込みもしないので靄が薄くなる
     const mat = new THREE.MeshBasicMaterial({
-      color, transparent: true, opacity: 0.07,
+      color, transparent: true, opacity: 0.025,
       side: THREE.BackSide, depthWrite: false,
     });
     const mesh = new THREE.Mesh(geom, mat);
@@ -2932,8 +2997,7 @@ function setupModuleHalos(graph, nodes) {
     graph.scene().add(mesh);
   }
 
-  // engine tick で位置・サイズ更新（重心と最大距離）
-  const prevTick = graph.onEngineTick.bind(graph);
+  // engine tick で位置・サイズ更新（重心+最大距離、サイズはタイトめに）
   graph.onEngineTick(() => {
     halos.forEach(h => {
       let cx = 0, cy = 0, cz = 0, n = 0;
@@ -2952,11 +3016,21 @@ function setupModuleHalos(graph, nodes) {
         }
       });
       h.mesh.position.set(cx, cy, cz);
-      h.mesh.scale.setScalar(Math.max(8, maxD + 10));
+      // パディングを +10→+2 に縮小、最小も 8→4 に
+      h.mesh.scale.setScalar(Math.max(4, maxD + 2));
     });
   });
 
   return halos;
+}
+
+function toggleModuleHalos() {
+  const cur = localStorage.getItem('cqg_halo_enabled') !== '0';
+  localStorage.setItem('cqg_halo_enabled', cur ? '0' : '1');
+  // 再描画（最後の解析結果を使って3Dグラフを作り直す）
+  if (currentResult) {
+    initGraph3D('graph3d-container', currentResult.nodes, currentResult.edges);
+  }
 }
 
 // Phase D2: 解析直後の段階的フェードイン（カスタム Mesh の scale を直接操作）
@@ -3499,7 +3573,30 @@ function renderInspectorContent(node) {
   const llmHtml = (typeof renderLLMSectionForNode === 'function')
     ? renderLLMSectionForNode(node) : '';
 
-  return tagsHtml + locHtml + llmHtml + metricsHtml + callersHtml + calleesHtml + sourceHtml;
+  // Phase E: 意図メモ（ユーザーが書ける、LLM プロンプトに渡される）
+  const intentText = (typeof getIntent === 'function') ? getIntent(node.id) : '';
+  const intentHtml = `
+    <div class="inspector-section llm-section">
+      <div class="inspector-section-title">📝 この関数の意図（LLMに渡されます）</div>
+      <textarea
+        class="intent-input"
+        data-node-id="${escapeAttr(node.id)}"
+        placeholder="例: 「priceがthresholdより高い商品だけ返す」など、本来やるべきことを1〜2行で"
+        oninput="onIntentInput(this)"
+        style="width:100%;min-height:60px;background:rgba(255,255,255,0.05);color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 10px;font-family:inherit;font-size:12px;line-height:1.4;resize:vertical"
+      >${escapeHtml(intentText)}</textarea>
+      <div style="font-size:10px;color:#888;margin-top:4px">
+        書くと LLM が「実装と意図の食い違い」を検出しやすくなる。doctestがあれば自動的に意図として扱われる。
+      </div>
+    </div>
+  `;
+
+  return tagsHtml + locHtml + intentHtml + llmHtml + metricsHtml + callersHtml + calleesHtml + sourceHtml;
+}
+
+function onIntentInput(textareaEl) {
+  const id = textareaEl.dataset.nodeId;
+  if (typeof setIntent === 'function') setIntent(id, textareaEl.value);
 }
 
 function renderInspectorCallList(node, title, direction) {
