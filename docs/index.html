@@ -2508,29 +2508,44 @@ async function runLLMTaskProject() {
       return `- ${n.label}(${n.n_args || 0}args) @${n.file}:${n.line}${flagsStr}${docFlag}${smellsStr}`;
     }).join('\n');
 
-    // LLMが見逃さないように「強制 SUSPICIOUS 候補」を別セクションで明示
+    // LLMが見逃さないように「強制取り上げ候補」を別セクションで明示
     let forcedCandidates = '';
     if (securityHits.length > 0 || isolatedReal.length > 0) {
-      forcedCandidates = '\n\n【★強制 SUSPICIOUS 候補（必ず取り上げ、見逃すな）】\n';
+      forcedCandidates = '\n\n【★強制取り上げ候補（必ず判定・SUSPICIOUS or MISSING のどちらかで論じる）】\n';
+      // セキュリティ問題は SUSPICIOUS 確定
       securityHits.forEach(n => {
         const issues = (n.security_issues || []).join(', ');
-        forcedCandidates += `  ⚠ ${n.label}: 🔓セキュリティ問題 [${issues}] - 在庫管理など普通のアプリには通常不要\n`;
+        forcedCandidates += `  🔓 ${n.label}: セキュリティ問題 [${issues}] → SUSPICIOUS 確定（プロジェクト目的にeval/shell が必要と明記がない限り）\n`;
       });
+      // 孤立関数は役割で振り分けが必要なことを明示
       isolatedReal.forEach(n => {
-        forcedCandidates += `  ⚠ ${n.label}: 🚨ISOLATED（誰からも呼ばれてない） - 用途不明、必要性を疑う\n`;
+        forcedCandidates += `  🚨 ${n.label}: ISOLATED → 役割を判断: 目的の中核なら MISSING に「呼び出し漏れ」と書き、目的に無関係なら SUSPICIOUS\n`;
       });
-      forcedCandidates += '→ 上記関数のうち、プロジェクト目的に照らして「不要」「危険」と判断できるものは必ず SUSPICIOUS で論じる。';
+      forcedCandidates += '→ 上記は1つも見逃さないこと。CONTRIBUTING/SUSPICIOUS/MISSING のどれかに必ず登場させる。';
     }
 
     const systemPrompt = `あなたはシニアアーキテクト。プロジェクトの目的と実装の整合性を厳しく判定する。
 
 【判定の優先候補】
-入力の関数リストに付いてるフラグを必ず使え:
-- 🚨ISOLATED: 誰からも呼ばれてない孤立関数 → ほぼ確実に SUSPICIOUS（プロジェクト目的に必要なら呼ばれてるはず）
-- 🔓SEC[内容]: セキュリティ問題あり（eval/exec/shell等） → 在庫管理など普通のアプリなら **必ず SUSPICIOUS の上位**で論じる
+入力の関数リストに付いてるフラグを使い分けろ:
+
+- 🔓SEC[内容]: セキュリティ問題あり（eval/exec/shell等）
+  → 普通のアプリ（在庫管理・タスク管理等）なら **必ず最優先で SUSPICIOUS**。
+    プロジェクト目的に明示されてない限り、このフラグは見逃すな。
+
+- 🚨ISOLATED: 誰からも呼ばれてない孤立関数。**ここは判断を分ける**:
+  (a) その関数の役割がプロジェクト目的の **中核機能** ＝ 「呼ばれるべきなのに呼ばれてない」
+      → SUSPICIOUS じゃなく **MISSING** に「○○の呼び出しが見当たらない」と書く
+      （例: 在庫管理プロジェクトの add_stock が ISOLATED → MISSING に「main から add_stock 呼び出しが無い」）
+  (b) その関数の役割がプロジェクト目的に **無関係** ＝ そもそも要らない
+      → SUSPICIOUS
+
 - ⚠DANGER または 低スコア: 要改善で目的を阻害する可能性 → SUSPICIOUS 候補
+
 - smells=[...] で複数あり: 雑な実装、目的達成の信頼性を下げる → SUSPICIOUS 候補
-- dunder: __init__ / __str__ 等の特殊メソッド → ISOLATED でも怪しくない（呼び出され方が特殊なだけ）。SUSPICIOUS に入れない
+
+- dunder: __init__ / __str__ 等の特殊メソッド → ISOLATED でも怪しくない
+  （呼び出され方が特殊なだけ）。SUSPICIOUS にも MISSING にも入れない。
 
 【絶対禁止】
 1. 入力フォーマットをそのままコピペ（例: "foo(1args) @file:10"）
@@ -2575,11 +2590,13 @@ async function runLLMTaskProject() {
 
 すべて日本語、簡潔、同じ文を繰り返さない。`;
 
+    // 強制候補は冒頭に配置（軽量モデルは後半を見逃しがち）
     const userPrompt = `【プロジェクトの目的】\n${projectIntent}\n\n` +
+      (forcedCandidates ? forcedCandidates.replace(/^\n\n/, '') + '\n\n' : '') +
       `【参考: 実装されている関数の一覧（${nodes.length}個、メタ情報のみ。この行をそのままコピペしないこと）】\n` +
-      `${summary}` +
-      forcedCandidates + `\n\n` +
-      `この関数群がプロジェクトの目的を達成できるか、上の【出力形式】に従って判定してください。`;
+      `${summary}\n\n` +
+      `上記を元に、上の【出力形式】に従って判定してください。\n` +
+      `特に冒頭の「強制 SUSPICIOUS 候補」は必ず取り上げること。`;
     const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: 600, temperature: 0.4 });
 
     // 結果カード（プロジェクト整合性は1枚の大きいカード）
