@@ -146,6 +146,9 @@ def _run_analysis(workdir: str) -> dict:
             "docstring": func.docstring,
             # ===== 構造的異常スコア（0-100、高いほど他関数と異質） =====
             "anomaly_score": anomaly_scores.get(qname, 0),
+            # ===== コードスメル（静的検出、層A） =====
+            "code_smells": getattr(func, "code_smells", []),
+            "max_nest_depth": getattr(func, "max_nest_depth", 0),
         })
 
     # エッジ重み = 同じ caller→callee ペアの呼び出し回数
@@ -167,6 +170,7 @@ def _run_analysis(workdir: str) -> dict:
             "n_imports": len(mod.imports),
             "score": mod_scores.get(mname, 100),
             "impact": impact["modules"].get(mname, {}).get("affected_modules", 0),
+            "code_smells": getattr(mod, "code_smells", []),
         })
 
     # 平均スコア

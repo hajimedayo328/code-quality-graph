@@ -60,6 +60,9 @@ class FunctionInfo:
     is_entry: bool = False        # main / if __name__ == "__main__" 内呼び出し
     decorators: list[str] = field(default_factory=list)  # @staticmethod 等
     is_generator: bool = False    # yield を含む
+    # ===== コードスメル (静的検出) =====
+    code_smells: list[dict] = field(default_factory=list)  # [{type, severity, message}]
+    max_nest_depth: int = 0       # 関数ボディの最大ネスト深さ
 
 
 @dataclass
@@ -75,6 +78,8 @@ class ModuleInfo:
     git_commits: int = 0          # Git変更回数
     git_last_modified: str = ""   # 最終変更日
     security_issues: list[str] = field(default_factory=list)
+    # ===== モジュールレベルのコードスメル =====
+    code_smells: list[dict] = field(default_factory=list)  # 未使用 import 等
 
 
 # ========== AST解析 ==========
@@ -211,6 +216,9 @@ class CodeAnalyzer:
                 else:
                     func_type = "function"
 
+                # ===== コードスメル検出 =====
+                smells, max_depth = _detect_code_smells(node)
+
                 func = FunctionInfo(
                     name=node.name, qualified_name=qname,
                     file=str(rel_path), line=node.lineno,
@@ -228,12 +236,17 @@ class CodeAnalyzer:
                     is_entry=is_entry,
                     decorators=decorators,
                     is_generator=is_generator,
+                    code_smells=smells,
+                    max_nest_depth=max_depth,
                 )
                 self.functions[qname] = func
                 mod.functions.append(qname)
 
             elif isinstance(node, ast.ClassDef):
                 mod.classes.append(f"{module_name}.{node.name}")
+
+        # ===== モジュールレベルのスメル =====
+        mod.code_smells = _detect_module_smells(tree, source)
 
         self.modules[module_name] = mod
 
@@ -685,6 +698,13 @@ def calc_quality_scores(
             score -= 15
             reasons.append(f"セキュリティ: {issue}")
 
+        # コードスメル（重複/複雑度などと別軸の追加減点）
+        for smell in getattr(func, "code_smells", []):
+            sev = smell.get("severity", "low")
+            penalty = {"high": 6, "medium": 4, "low": 2}.get(sev, 2)
+            score -= penalty
+            reasons.append(f"スメル[{smell.get('type', '?')}]: {smell.get('message', '')}")
+
         func_scores[qname] = max(0, min(100, score))
 
         for reason in reasons:
@@ -762,6 +782,184 @@ def calc_quality_scores(
         })
 
     return func_scores, mod_scores, warnings
+
+
+# ========== コードスメル検出（静的解析・層A） ==========
+
+# よく使う数値はマジックナンバーから除外
+_COMMON_NUMS = {0, 1, -1, 2, 10, 100, 1000, 0.0, 1.0, 0.5, 100.0}
+
+
+def _calc_max_nest_depth(func_node: ast.AST) -> int:
+    """関数ボディの最大ネスト深さ。If/For/While/With/Try のネスト数。"""
+    max_d = [0]
+
+    def walk(node, depth):
+        if depth > max_d[0]:
+            max_d[0] = depth
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.If, ast.For, ast.While, ast.With,
+                                  ast.AsyncFor, ast.AsyncWith, ast.Try)):
+                walk(child, depth + 1)
+            else:
+                walk(child, depth)
+
+    for stmt in getattr(func_node, "body", []):
+        walk(stmt, 1)
+    return max_d[0]
+
+
+def _detect_code_smells(func_node: ast.AST) -> tuple[list[dict], int]:
+    """関数1つに対するコードスメル検出。
+
+    検出対象:
+      - deep_nesting: ネスト深さ >= 4
+      - magic_number: 共通でない数値リテラル多数
+      - redundant_condition: `== True/False/None` のような冗長比較
+      - long_param_list: 引数 >= 5
+      - early_return: if内に return がある→else不要
+      - too_long_function: 行数 >= 50
+    """
+    smells: list[dict] = []
+    max_depth = _calc_max_nest_depth(func_node)
+
+    # 1. ネスト深さ
+    if max_depth >= 4:
+        sev = "high" if max_depth >= 5 else "medium"
+        smells.append({
+            "type": "deep_nesting",
+            "severity": sev,
+            "message": f"ネスト深さが {max_depth} 段（推奨は3段以下）",
+        })
+
+    # 2. マジックナンバー
+    magic_vals: list[tuple[int, int | float]] = []
+    for n in ast.walk(func_node):
+        if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)) and not isinstance(n.value, bool):
+            if n.value not in _COMMON_NUMS and abs(n.value) > 1:
+                magic_vals.append((getattr(n, "lineno", 0), n.value))
+    if len(magic_vals) >= 3:
+        sample = ", ".join(str(v) for _, v in magic_vals[:5])
+        smells.append({
+            "type": "magic_number",
+            "severity": "low",
+            "message": f"マジックナンバー {len(magic_vals)} 個: {sample}{' ...' if len(magic_vals) > 5 else ''} → 名前付き定数を推奨",
+        })
+
+    # 3. 冗長条件 ( == True / == False / == None )
+    seen_redundant = False
+    for n in ast.walk(func_node):
+        if isinstance(n, ast.Compare):
+            for cmp_op, cmp_val in zip(n.ops, n.comparators):
+                if isinstance(cmp_val, ast.Constant) and (
+                    cmp_val.value is True or cmp_val.value is False or cmp_val.value is None
+                ):
+                    if isinstance(cmp_op, (ast.Eq, ast.NotEq)):
+                        smells.append({
+                            "type": "redundant_condition",
+                            "severity": "low",
+                            "message": f"`== {cmp_val.value}` は冗長。`is {cmp_val.value}` または ブール直接判定を推奨",
+                        })
+                        seen_redundant = True
+                        break
+            if seen_redundant:
+                break
+
+    # 4. 長い引数リスト
+    n_args = len(getattr(func_node.args, "args", []))
+    if n_args >= 5:
+        sev = "high" if n_args >= 7 else "medium"
+        smells.append({
+            "type": "long_param_list",
+            "severity": sev,
+            "message": f"引数 {n_args} 個（5以上）→ クラス化 or オプション dict 化を検討",
+        })
+
+    # 5. 早期return可能 (if X: return Y; else: ...)
+    for child in getattr(func_node, "body", []):
+        if isinstance(child, ast.If) and child.orelse:
+            has_return = any(isinstance(s, (ast.Return, ast.Raise)) for s in child.body)
+            if has_return:
+                smells.append({
+                    "type": "early_return",
+                    "severity": "low",
+                    "message": "if 内に return/raise がある → else は不要（早期returnで簡略化可）",
+                })
+                break
+
+    # 6. 長すぎる関数（行数）
+    end_line = getattr(func_node, "end_lineno", func_node.lineno)
+    n_lines = end_line - func_node.lineno + 1
+    if n_lines >= 50:
+        sev = "high" if n_lines >= 100 else "medium"
+        smells.append({
+            "type": "too_long_function",
+            "severity": sev,
+            "message": f"関数が {n_lines} 行（推奨は50行以下）→ 分割を検討",
+        })
+
+    return smells, max_depth
+
+
+def _detect_module_smells(tree: ast.AST, source: str) -> list[dict]:
+    """モジュールレベルのスメル検出。
+
+    検出対象:
+      - unused_import: import されたが使われていない
+    """
+    smells: list[dict] = []
+
+    # import で導入された名前を集める
+    imported_names: list[tuple[str, int]] = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Import):
+            for alias in n.names:
+                name = (alias.asname or alias.name).split(".")[0]
+                imported_names.append((name, n.lineno))
+        elif isinstance(n, ast.ImportFrom):
+            for alias in n.names:
+                name = alias.asname or alias.name
+                if name == "*":
+                    continue
+                imported_names.append((name, n.lineno))
+
+    # ソース全体の Name / Attribute から使用されてる名前を集める
+    used: set[str] = set()
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Name):
+            used.add(n.id)
+        elif isinstance(n, ast.Attribute):
+            # base が Name の場合のみ拾う
+            base = n
+            while isinstance(base, ast.Attribute):
+                base = base.value
+            if isinstance(base, ast.Name):
+                used.add(base.id)
+
+    # 未使用 import
+    unused = [(name, lineno) for name, lineno in imported_names
+              if name not in used and not name.startswith("_")]
+    # __init__.py 風の re-export を簡易判定（__all__ にあれば除外）
+    all_list: set[str] = set()
+    for n in ast.iter_child_nodes(tree):
+        if isinstance(n, ast.Assign):
+            for t in n.targets:
+                if isinstance(t, ast.Name) and t.id == "__all__":
+                    if isinstance(n.value, (ast.List, ast.Tuple)):
+                        for el in n.value.elts:
+                            if isinstance(el, ast.Constant) and isinstance(el.value, str):
+                                all_list.add(el.value)
+    unused = [(n, l) for n, l in unused if n not in all_list]
+
+    if unused:
+        sample = ", ".join(f"{n} (L{l})" for n, l in unused[:5])
+        smells.append({
+            "type": "unused_import",
+            "severity": "low",
+            "message": f"未使用import {len(unused)} 個: {sample}{' ...' if len(unused) > 5 else ''}",
+        })
+
+    return smells
 
 
 def _suggest_fix(reason: str) -> str:

@@ -977,9 +977,17 @@ ZeroDivisionError: division by zero"></textarea>
             <div class="task-title">🔍 意味的バグ検出</div>
             <div class="task-desc">コンパイルは通るが「論理が逆」「境界値ミス」「意図と違う動き」を発見</div>
           </div>
+          <div class="llm-task-card" id="llmTaskSmells" onclick="runLLMTaskSmells()">
+            <div class="task-title">🚩 コードスメル深堀</div>
+            <div class="task-desc">静的検出（ネスト深・マジック数値・未使用import等）に加えて、命名・抽象度・嘘コメントなどLLMでしか分からないスメルを指摘</div>
+          </div>
+          <div class="llm-task-card" id="llmTaskRedundant" onclick="runLLMTaskRedundant()">
+            <div class="task-title">✂️ 冗長判定（短く書ける？）</div>
+            <div class="task-desc">「これ何行で書ける？」を判定。同じ動作のもっと短い版を提案、または「これで十分」と判定</div>
+          </div>
           <div class="llm-task-card" id="llmTaskRefactor" onclick="runLLMTaskRefactor()">
             <div class="task-title">♻️ リファクタ提案</div>
-            <div class="task-desc">複雑度が高い・認知的負荷が大きい関数を選んで改善案を提示</div>
+            <div class="task-desc">複雑度が高い・認知的負荷が大きい関数を選んで構造的な改善案を1つ提示</div>
           </div>
           <div class="llm-task-card" id="llmTaskExplain" onclick="runLLMTaskExplain()">
             <div class="task-title">📝 関数を1行で説明</div>
@@ -2182,7 +2190,7 @@ function setLLMUiState(state, progressText) {
 }
 
 function setLLMTaskCardsEnabled(enabled) {
-  ['llmTaskBugs', 'llmTaskRefactor', 'llmTaskExplain'].forEach(id => {
+  ['llmTaskBugs', 'llmTaskSmells', 'llmTaskRedundant', 'llmTaskRefactor', 'llmTaskExplain'].forEach(id => {
     const c = document.getElementById(id);
     if (!c) return;
     if (enabled) c.classList.remove('disabled');
@@ -2299,6 +2307,41 @@ confidence: 80
 bug_class: none
 point: <1行説明>
 reason: -`);
+}
+
+async function runLLMTaskSmells() {
+  if (!_llmReady || !currentResult) return;
+  await runLLMOverFunctions('smells', 'コードスメル深堀', `あなたはPythonコードレビューア。
+静的解析が拾えないスメルを指摘してください。観点:
+  bad_naming: 変数/関数名が意味不明（x, tmp, data2 等）
+  poor_abstraction: 抽象度がバラバラ・粒度がおかしい
+  lying_comment: コメントと実装が食い違う
+  god_function: 1つの関数で多すぎることをやってる
+  unclear_intent: 何をしたいのか読み取れない
+  copy_paste: 似たコードの貼り付けが目立つ
+  none: 問題なし
+verdict: SMELL_FOUND / OK
+confidence: 0-100
+bug_class: <上記から1つ>
+point: 1〜2文の要点
+reason: 該当箇所の引用
+日本語で簡潔に。`);
+}
+
+async function runLLMTaskRedundant() {
+  if (!_llmReady || !currentResult) return;
+  await runLLMOverFunctions('redundant', '冗長判定', `あなたはPythonの簡潔さ評論家。
+「このコードはもっと短く書けるか」を判定してください。
+判定基準:
+  REDUCIBLE: 同じ動作で確実に短く書ける（具体案あり）
+  ARGUABLE: 短くは書けるが可読性が落ちる/トレードオフ
+  CONCISE: これ以上短くするのは難しい / 適切
+verdict: REDUCIBLE / ARGUABLE / CONCISE
+confidence: 0-100
+bug_class: none
+point: 短縮案または判定理由（1〜2文）
+reason: 削れる箇所の具体的な引用（行のキーワード）
+日本語で簡潔に。コード例は出さないで判定と要点のみ。`);
 }
 
 // doctest を「期待挙動の例」として抽出（LLMプロンプト用）
@@ -2440,6 +2483,15 @@ function buildLLMPromptForNode(node, src) {
     sections.push(`\n【グラフ異常度: ${node.anomaly_score}/100】他関数と比べてメトリクスが外れている。注目関数。`);
   }
 
+  // 静的検出済みスメル（重複判定回避＋LLMでの補強用）
+  const smells = node.code_smells || [];
+  if (smells.length > 0) {
+    const list = smells.map(s => `  - [${s.severity}] ${s.type}: ${s.message}`).join('\n');
+    sections.push(`\n【静的検出済みスメル（既出。重複報告は不要）】\n${list}\n→ これらは既に検知済み。LLMでしか分からない別の問題があれば指摘。`);
+  }
+  // メトリクス（要点）
+  sections.push(`\n【メトリクス】行数=${node.lines || 0}, 複雑度=${node.complexity || 0}, 認知=${node.cognitive || 0}, ネスト=${node.max_nest_depth || 0}, 引数=${node.n_args || 0}`);
+
   // 期待挙動が一切なければ、その旨を伝える
   if (!intent && !doctestsBlock && failedTests.length === 0) {
     sections.push(`\n【期待挙動】明示無し。関数名/docstringから推測。意図不明なら verdict=SUSPICIOUS, reason に「意図メモ or doctest 追加を」`);
@@ -2518,17 +2570,22 @@ function computeReviewPriority(node, parsed) {
   const conf = parsed.confidence || 0;              // 0-100
   const verdictWeight = parsed.verdict === 'BUG' ? 1.0
                       : parsed.verdict === 'SUSPICIOUS' ? 0.6
+                      : parsed.verdict === 'SMELL_FOUND' ? 0.45
+                      : parsed.verdict === 'REDUCIBLE' ? 0.4
                       : parsed.verdict === 'REFACTOR_NEEDED' ? 0.5
+                      : parsed.verdict === 'ARGUABLE' ? 0.2
                       : 0.1;
   // テスト失敗があれば最大ブースト
   const hasFailedTest = collectFailedTestsForNode(node).length > 0 ? 25 : 0;
-  // (LLM verdict × confidence × 0.7) + (グラフ異常 × 0.3) + テスト失敗ブースト
-  return Math.min(100, Math.round(verdictWeight * conf * 0.7 + anomaly * 0.3 + hasFailedTest));
+  // 静的スメルが多いほど少しブースト
+  const smellBoost = Math.min(10, (node.code_smells || []).length * 2);
+  // (LLM verdict × confidence × 0.65) + (グラフ異常 × 0.25) + テスト失敗 + スメル
+  return Math.min(100, Math.round(verdictWeight * conf * 0.65 + anomaly * 0.25 + hasFailedTest + smellBoost));
 }
 
 function severityClassFor(verdict) {
-  if (verdict === 'BUG' || verdict === 'REFACTOR_NEEDED') return 'bad';
-  if (verdict === 'SUSPICIOUS') return 'warn';
+  if (verdict === 'BUG') return 'bad';
+  if (verdict === 'SUSPICIOUS' || verdict === 'SMELL_FOUND' || verdict === 'REFACTOR_NEEDED' || verdict === 'REDUCIBLE') return 'warn';
   return 'good';
 }
 
@@ -2591,6 +2648,20 @@ function renderLLMSectionForNode(node) {
     items.push(`<div class="inspector-section llm-section">
       <div class="inspector-section-title">🤖 LLM リファクタ提案（${r.refactor.verdict}）</div>
       <div style="font-size:12px">${escapeHtml(r.refactor.point || '')}</div>
+    </div>`);
+  }
+  if (r.smells) {
+    items.push(`<div class="inspector-section llm-section">
+      <div class="inspector-section-title">🤖 LLM コードスメル深堀（${r.smells.verdict}）</div>
+      <div style="font-size:12px">${escapeHtml(r.smells.point || '')}</div>
+      ${r.smells.reason ? `<div style="font-size:11px;color:#aaa;margin-top:4px">${escapeHtml(r.smells.reason)}</div>` : ''}
+    </div>`);
+  }
+  if (r.redundant) {
+    items.push(`<div class="inspector-section llm-section">
+      <div class="inspector-section-title">🤖 LLM 冗長判定（${r.redundant.verdict}）</div>
+      <div style="font-size:12px">${escapeHtml(r.redundant.point || '')}</div>
+      ${r.redundant.reason ? `<div style="font-size:11px;color:#aaa;margin-top:4px">${escapeHtml(r.redundant.reason)}</div>` : ''}
     </div>`);
   }
   if (r.explain) {
@@ -3721,6 +3792,23 @@ function renderInspectorContent(node) {
     </div>
   ` : '';
 
+  // コードスメル（静的検出、層A）
+  const smells = node.code_smells || [];
+  const smellsHtml = smells.length > 0 ? `
+    <div class="inspector-section">
+      <div class="inspector-section-title">🚩 コードスメル（${smells.length} 件）</div>
+      <div class="inspector-list">
+        ${smells.map(s => {
+          const sevColor = s.severity === 'high' ? '#ff3b30' : s.severity === 'medium' ? '#ff9500' : '#86868b';
+          return `<div class="inspector-list-item" style="border-left:3px solid ${sevColor}">
+            <span class="badge-mini" style="background:${sevColor}22;color:${sevColor}">${escapeHtml(s.type)}</span>
+            <span style="flex:1;font-size:11px;color:#ddd">${escapeHtml(s.message)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  ` : '';
+
   // Phase E: LLM評価結果が既にあれば表示
   const llmHtml = (typeof renderLLMSectionForNode === 'function')
     ? renderLLMSectionForNode(node) : '';
@@ -3743,7 +3831,7 @@ function renderInspectorContent(node) {
     </div>
   `;
 
-  return tagsHtml + locHtml + intentHtml + llmHtml + metricsHtml + callersHtml + calleesHtml + sourceHtml;
+  return tagsHtml + locHtml + intentHtml + smellsHtml + llmHtml + metricsHtml + callersHtml + calleesHtml + sourceHtml;
 }
 
 function onIntentInput(textareaEl) {
