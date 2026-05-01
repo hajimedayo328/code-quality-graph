@@ -2635,18 +2635,33 @@ async function runLLMTaskProject() {
 
 async function runLLMTaskRedundant() {
   if (!_llmReady || !currentResult) return;
-  await runLLMOverFunctions('redundant', '冗長判定', `あなたはPythonの簡潔さ評論家。
-「このコードはもっと短く書けるか」を判定してください。
-判定基準:
-  REDUCIBLE: 同じ動作で確実に短く書ける（具体案あり）
-  ARGUABLE: 短くは書けるが可読性が落ちる/トレードオフ
-  CONCISE: これ以上短くするのは難しい / 適切
+  await runLLMOverFunctions('redundant', '冗長判定', `あなたはPythonの簡潔さ評論家。「このコードは動作を一切変えずに短く書けるか」のみ判定。
+
+【★絶対ルール】
+1. **動作が1ミリでも変わる提案は禁止**:
+   - バグ修正（不等号修正・条件追加・round()変更等）→ これは別タスクの仕事
+   - 仕様変更（log呼び出し削除・別モジュール導入・引数追加等）→ 範囲外
+   - 副作用変更（return追加・例外送出変更）→ 範囲外
+   どれかに該当するなら verdict=CONCISE で「短縮するには動作変更が必要」と書け。
+2. **既存実装と同じ提案は禁止**:
+   - 「self.products.values()を直接イテレート」→既にそう書いてるなら言うな
+   - コードを必ず精読し、既に実装されてる方法を「提案」しない。
+3. 確信度70%未満なら verdict=CONCISE にする（自信ない短縮提案は無価値）。
+
+【判定基準】
+  REDUCIBLE: 動作完全に同一で確実に短く書ける（具体案あり）。
+             例: 「for+if のリスト → リスト内包」「冗長な中間変数の省略」「重複条件の合体」
+  ARGUABLE: 動作同一で短く書けるが可読性トレードオフ
+  CONCISE: 既に十分短い、または動作変えずには短くできない
+
+【出力形式】
 verdict: REDUCIBLE / ARGUABLE / CONCISE
-confidence: 0-100
+confidence: 1-99（70未満は verdict=CONCISE 推奨）
 bug_class: none
-point: 短縮案または判定理由（1〜2文）
-reason: 削れる箇所の具体的な引用（行のキーワード）
-日本語で簡潔に。コード例は出さないで判定と要点のみ。`);
+point: 短縮案 or 判定理由（1〜2文）。動作が変わるなら verdict=CONCISE にして「動作変更必要」
+reason: REDUCIBLE/ARGUABLE のみ、削れる箇所の具体的引用
+
+日本語、簡潔。`);
 }
 
 // doctest を「期待挙動の例」として抽出（LLMプロンプト用）
