@@ -961,6 +961,7 @@ ZeroDivisionError: division by zero"></textarea>
         </div>
         <div class="llm-controls">
           <span class="llm-status" id="llmTabStatus">未初期化</span>
+          <button class="btn" type="button" onclick="clearLLMCache()" style="margin-left:auto" title="ダウンロード済みモデルをブラウザキャッシュから削除（ディスク容量を解放）">🗑 キャッシュ削除</button>
         </div>
         <div class="llm-task-grid">
           <div class="llm-task-card" id="llmTaskBugs" onclick="runLLMTaskBugs()">
@@ -2049,7 +2050,14 @@ const LLM_CONFIRM_KEY = 'cqg_llm_confirmed_v1';
 async function toggleLLM() {
   if (_llmLoading) return;
   if (_llmReady) {
-    // ON 状態でクリック → OFF（エンジンは保持、UIだけクローズで再起動を高速化）
+    // ON → OFF: エンジンを完全アンロードして VRAM/RAM を解放
+    // （モデルファイル自体はブラウザキャッシュに残るので、再ONは数秒で復帰）
+    try {
+      if (_llmEngine && typeof _llmEngine.unload === 'function') {
+        await _llmEngine.unload();
+      }
+    } catch (e) { console.warn('LLM unload failed', e); }
+    _llmEngine = null;
     setLLMUiState('off');
     return;
   }
@@ -2190,6 +2198,34 @@ async function initLLM(modelId) {
     setLLMUiState('error', e.message);
     alert('WebLLM 初期化失敗: ' + e.message + '\n\n' +
           'WebGPU対応ブラウザ（最新Chrome/Edge）が必要です。Firefoxは限定的です。');
+  }
+}
+
+async function clearLLMCache() {
+  if (!confirm('ダウンロード済みのLLMモデル（数GB）をブラウザキャッシュから削除します。\n再度使うときはまたDLが必要になります。\n\n続けますか？')) return;
+  try {
+    // エンジン稼働中なら先に解放
+    if (_llmEngine && typeof _llmEngine.unload === 'function') {
+      try { await _llmEngine.unload(); } catch (e) { /* ignore */ }
+    }
+    _llmEngine = null;
+    setLLMUiState('off');
+    // WebLLM が使う Cache Storage (webllm/* キー) と OPFS を削除
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      for (const k of keys) {
+        if (/webllm|mlc/i.test(k)) await caches.delete(k);
+      }
+    }
+    // navigator.storage.estimate() で空き状況確認
+    let after = '';
+    if (navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      after = `（残ストレージ使用: ${formatBytes(est.usage || 0)}）`;
+    }
+    alert('キャッシュを削除しました' + after + '\n\n完全クリアにはブラウザの「サイト設定 > すべてのデータをクリア」も推奨。');
+  } catch (e) {
+    alert('キャッシュ削除に失敗: ' + e.message);
   }
 }
 
