@@ -978,12 +978,13 @@ ZeroDivisionError: division by zero"></textarea>
           <div style="font-weight:700;margin-bottom:6px">📋 プロジェクト全体の目的（全LLMタスクに必ず投入されます）</div>
           <textarea
             id="projectIntent"
-            placeholder="例: 「タスク管理ツール。ユーザーがタスクをCRUDし、優先度・締切で並べ替えできることが目標。CLIインターフェース。」"
+            placeholder="例: 「飲食店向け在庫管理ツール。商品のCRUD・税込価格表示・低在庫アラート・カテゴリ別検索が主機能。Web UIのバックエンド想定。Pythonクラスベース」"
             oninput="onProjectIntentInput(this)"
-            style="width:100%;min-height:60px;padding:8px 10px;border:1px solid #d2d2d7;border-radius:8px;font-family:inherit;font-size:13px;line-height:1.5;resize:vertical;background:#fff;color:#1d1d1f"
+            style="width:100%;min-height:80px;padding:8px 10px;border:1px solid #d2d2d7;border-radius:8px;font-family:inherit;font-size:13px;line-height:1.5;resize:vertical;background:#fff;color:#1d1d1f"
           ></textarea>
           <div style="font-size:11px;color:#86868b;margin-top:4px">
-            これを書くと「個別関数 vs プロジェクト全体の目的」の整合性を判定できます。空でも動きますが精度大幅低下。
+            <b>50〜200字で具体的に</b>書くと精度が大きく上がります。「何をする/誰向け/主要機能/前提」を含める。<br>
+            <b>NG例</b>:「教えて」「便利ツール」 → LLMが判定基準を持てず無意味な出力に。
           </div>
         </div>
         <div class="llm-task-grid">
@@ -2411,6 +2412,17 @@ async function runLLMTaskProject() {
     alert('上の「📋 プロジェクト全体の目的」欄を先に書いてください。\n\n例: 「タスク管理ツール。CRUD・優先度ソート・締切ソート」\n\nこれが無いと「目的との整合性」を判定できません。');
     return;
   }
+  if (projectIntent.length < 25) {
+    const ok = confirm(
+      `プロジェクト目的が短すぎます（${projectIntent.length}字）。\n\n` +
+      `「${projectIntent}」だけだと LLM が判定基準を持てず、\n` +
+      `「目次のコピペ」のような無意味な出力になりがちです。\n\n` +
+      `推奨: 50〜200字で「何をする/何のため/誰向け/主要機能」を書く。\n` +
+      `例: 「飲食店向け在庫管理。商品のCRUD・税込価格・低在庫アラート・ロット管理。Web UI想定」\n\n` +
+      `このまま実行しますか？（精度は期待しないで）`
+    );
+    if (!ok) return;
+  }
 
   setLLMTaskCardsEnabled(false);
   const status = document.getElementById('llmTabStatus');
@@ -2432,24 +2444,37 @@ async function runLLMTaskProject() {
     }).join('\n');
 
     const systemPrompt = `あなたはシニアアーキテクト。プロジェクトの目的と実装の整合性を判定する。
-以下の形式で必ず回答（厳守、繰り返し禁止）:
 
+【絶対禁止】
+- 入力で渡された「関数一覧」のフォーマット（例: "slug(1args) @file:10 [method] score=100 lines=3"）を
+  そのままコピペして出力すること。これは LLM 判定ではなく目次の貼付なので厳禁。
+- CONTRIBUTING / SUSPICIOUS の各行は必ず「関数名: <あなた自身の言葉での寄与/問題説明>」の形にする。
+- SUSPICIOUS と MISSING に "None" や "なし" を書くのは判定放棄。
+  本当に該当ゼロでも「全関数が目的に貢献しており、無関係関数は見当たらない」のように
+  自分の言葉で1文書く。
+- プロジェクト目的が曖昧で判定不能な場合は判定: UNKNOWN を返し、
+  要点に「目的が抽象的すぎて判定不能、具体化を」と書く。
+
+【出力形式】（このマーカーは必ずこの順で書く）
 ==SUMMARY==
-判定: ALIGNED / PARTIAL / MISALIGNED
-要点: 1〜2文で全体評価
+判定: ALIGNED / PARTIAL / MISALIGNED / UNKNOWN
+要点: 1〜2文で全体評価（自分の言葉）
 
-==CONTRIBUTING==（目的に貢献している関数、最大5個）
-- 関数名: 一言で寄与説明
+==CONTRIBUTING==（目的に貢献している関数、最大5個、寄与の理由を必ず日本語で）
+- 関数名: <なぜ目的に貢献するかを15〜40字で>
 
-==SUSPICIOUS==（目的と無関係/逆効果に見える関数、最大5個）
-- 関数名: なぜ怪しいか
+==SUSPICIOUS==（目的と無関係/逆効果に見える関数、最大5個。無ければ自然文で「該当なし」を1文）
+- 関数名: <なぜ怪しいか>
 
-==MISSING==（目的達成に必要だが見当たらない処理、最大3個）
-- 機能名: なぜ必要か
+==MISSING==（目的達成に必要だが見当たらない処理、最大3個。無ければ自然文で「該当なし」を1文）
+- 機能名: <なぜ必要か>
 
-日本語で簡潔に。同じ文を繰り返さない。`;
+すべて日本語、簡潔、繰り返し禁止。`;
 
-    const userPrompt = `【プロジェクトの目的】\n${projectIntent}\n\n【実装されている関数の一覧（${nodes.length}個）】\n${summary}\n\nこの関数群はプロジェクトの目的を達成しているか判定してください。`;
+    const userPrompt = `【プロジェクトの目的】\n${projectIntent}\n\n` +
+      `【参考: 実装されている関数の一覧（${nodes.length}個、メタ情報のみ。この行をそのままコピペしないこと）】\n` +
+      `${summary}\n\n` +
+      `この関数群がプロジェクトの目的を達成できるか、上の【出力形式】に従って判定してください。`;
     const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: 600, temperature: 0.4 });
 
     // 結果カード（プロジェクト整合性は1枚の大きいカード）
