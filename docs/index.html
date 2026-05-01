@@ -959,8 +959,14 @@ ZeroDivisionError: division by zero"></textarea>
 
       <div id="tab-llm" class="tab-content">
         <div class="section-desc">
-          ローカルLLM（WebLLM、ブラウザ内実行）でコードを<b>意味的に</b>解析します。
-          コードは外部に送信されません（モデル本体だけCDNから取得）。
+          <b>人間レビューの補助ツール</b>です。LLMが「気になる関数」を優先度付きで並べます。最終判断は必ず人間が。<br>
+          検出精度を上げるための情報源（多いほど精度UP）：
+          <b>① doctest</b>（自動抽出）→
+          <b>② Inspector の意図メモ</b>（任意で書ける）→
+          <b>③ Phase C のテスト失敗結果</b>（強い証拠）→
+          <b>④ 呼び出し元/先のシグネチャ</b>（クロス関数文脈）→
+          <b>⑤ グラフ異常スコア</b>（他関数と異質か）。<br>
+          コードは外部送信されません（モデル本体だけCDN取得）。
         </div>
         <div class="llm-controls">
           <span class="llm-status" id="llmTabStatus">未初期化</span>
@@ -1427,6 +1433,8 @@ _test_result_json = json.dumps(_test_result, ensure_ascii=False, default=str)
     `);
     const json = pyodide.globals.get('_test_result_json');
     const result = JSON.parse(json);
+    // LLM 解析が「テスト失敗 = 実装と意図の食い違いの強い証拠」として使えるよう保持
+    window.currentTestResult = result;
 
     renderTestResults(result);
     document.getElementById('testStatus').textContent = `完了：${result.summary.pass} pass / ${result.summary.fail} fail`;
@@ -2245,35 +2253,52 @@ async function llmAsk(systemPrompt, userPrompt, opts = {}) {
   return reply.choices?.[0]?.message?.content?.trim() ?? '';
 }
 
-// === タスク 1: 意味的バグ検出 ===
+// === タスク 1: 意味的バグ検出（強化版：バグ分類＋確信度＋クロスコンテキスト） ===
 async function runLLMTaskBugs() {
   if (!_llmReady || !currentResult) return;
-  await runLLMOverFunctions('bugs', '意味的バグ検出', `あなたはPythonコードレビューア。
-コードを読み「コンパイルは通るが論理エラー・境界値ミス・意図と違う動き」を見つけてください。
-回答形式（厳密に守る）:
-判定: [BUG / SUSPICIOUS / OK]
-要点: 1〜2文
-理由: 具体的な該当箇所
+  await runLLMOverFunctions('bugs', '意味的バグ検出', `あなたはPythonコードレビューア。これはあくまで人間レビューの補助で、最終判断は人間がします。
+コードと「期待される挙動の手がかり」を照合し、矛盾を探してください。
+バグの種類:
+  logic_inversion: 比較演算子・条件の反転
+  off_by_one: ループ範囲・インデックスの ±1 ミス
+  boundary: 境界値（0/負/None/空）の扱いミス
+  type_mismatch: 戻り値・引数の型ずれ
+  unhandled: 例外・例外ケース未処理
+  incorrect_default: デフォルト引数・初期値ミス
+  side_effect: 想定外の副作用（mutation 等）
+  none: バグ無しと判断
+回答形式（厳密に守る、各行1つずつ）:
+verdict: BUG / SUSPICIOUS / OK
+confidence: 0-100 の整数（自信度）
+bug_class: <上記から1つ>
+point: 1〜2文の要点
+reason: 具体的な該当箇所（行のキーワードを引用）
 日本語で簡潔に。`);
 }
 
 async function runLLMTaskRefactor() {
   if (!_llmReady || !currentResult) return;
   await runLLMOverFunctions('refactor', 'リファクタ提案', `あなたはPythonコードレビューア。
-コードの「複雑さ・読みにくさ」を改善する具体的な提案を1つだけ提示してください。
+複雑さ・認知負荷を下げる具体的な改善を1つだけ提示してください。
 回答形式:
-判定: [REFACTOR_NEEDED / OK]
-提案: 1〜2文
+verdict: REFACTOR_NEEDED / OK
+confidence: 0-100
+bug_class: none
+point: 改善案を1〜2文
+reason: 該当箇所の引用
 日本語で簡潔に。`, n => (n.complexity || 0) >= 4 || (n.cognitive || 0) >= 5);
 }
 
 async function runLLMTaskExplain() {
   if (!_llmReady || !currentResult) return;
   await runLLMOverFunctions('explain', '関数説明', `あなたはPythonの先生。
-次の関数が何をしているかを「日本語で1行（30字以内）」で要約してください。
+関数が何をしているか日本語で1行（30字以内）に要約。
 形式:
-判定: [INFO]
-要点: <1行説明>`);
+verdict: INFO
+confidence: 80
+bug_class: none
+point: <1行説明>
+reason: -`);
 }
 
 // doctest を「期待挙動の例」として抽出（LLMプロンプト用）
@@ -2343,23 +2368,11 @@ async function runLLMOverFunctions(taskKey, taskLabel, systemPrompt, filterFn) {
     const src = extractFunctionSource(n);
     if (!src) continue;
     try {
-      // 期待挙動の手がかりを集める：doctest と ユーザー意図メモ
-      const doctestsBlock = extractDoctestsFromSource(src);
-      const intent = getIntent(n.id);
-      let intentSection = '';
-      if (intent) {
-        intentSection += `\n\n【期待される挙動（ユーザー指定）】\n${intent}`;
-      }
-      if (doctestsBlock) {
-        intentSection += `\n\n【期待される挙動（doctest）】\n${doctestsBlock}\n→ コードの実装が doctest と矛盾していないか必ず確認すること`;
-      }
-      if (!intent && !doctestsBlock) {
-        intentSection += `\n\n【期待される挙動】明示なし。関数名・docstringから推測してください。「意図不明」と感じたら verdict=SUSPICIOUS にし、reason に「意図メモ or doctest を追加してください」と書く。`;
-      }
-
-      const userPrompt = `関数名: ${n.label} (${n.file}:${n.line})\n\nコード:\n\`\`\`python\n${src}\n\`\`\`${intentSection}`;
-      const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: taskKey === 'explain' ? 100 : 280 });
+      const userPrompt = buildLLMPromptForNode(n, src);
+      const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: taskKey === 'explain' ? 100 : 380 });
       const parsed = parseLLMReply(reply, taskKey);
+      // グラフ異常スコアと組み合わせた優先度を計算
+      parsed.priority = computeReviewPriority(n, parsed);
       // 結果保存
       if (!_llmResults[n.id]) _llmResults[n.id] = {};
       _llmResults[n.id][taskKey] = parsed;
@@ -2376,27 +2389,141 @@ async function runLLMOverFunctions(taskKey, taskLabel, systemPrompt, filterFn) {
     }
   }
   progressFill.style.width = '100%';
-  status.textContent = `${taskLabel} 完了 (${nodes.length}件)`;
+  // 優先度順にソート（人間レビューしやすく）
+  const cards = Array.from(resultsEl.querySelectorAll('.llm-result-card'));
+  cards.sort((a, b) => (parseInt(b.dataset.priority || '0', 10)) - (parseInt(a.dataset.priority || '0', 10)));
+  cards.forEach(c => resultsEl.appendChild(c));
+  status.textContent = `${taskLabel} 完了 (${nodes.length}件、優先度順)`;
   setLLMTaskCardsEnabled(true);
   setTimeout(() => { progressEl.style.display = 'none'; }, 1000);
 }
 
+// LLM に渡すコンテキストを組み立て：意図 / doctest / 呼び出し元・先 / テスト失敗 / グラフ異常
+function buildLLMPromptForNode(node, src) {
+  const sections = [];
+  sections.push(`関数: ${node.label} (${node.file}:${node.line})`);
+  sections.push(`\nコード:\n\`\`\`python\n${src}\n\`\`\``);
+
+  // 期待挙動: ユーザー意図メモ
+  const intent = getIntent(node.id);
+  if (intent) {
+    sections.push(`\n【期待挙動（ユーザー指定・最優先）】\n${intent}\n→ コードがこれを満たすか厳しく確認`);
+  }
+
+  // 期待挙動: doctest
+  const doctestsBlock = extractDoctestsFromSource(src);
+  if (doctestsBlock) {
+    sections.push(`\n【doctest（期待挙動の例）】\n${doctestsBlock}\n→ 実装と矛盾しないか厳しく検証`);
+  }
+
+  // 強い証拠: テスト失敗
+  const failedTests = collectFailedTestsForNode(node);
+  if (failedTests.length > 0) {
+    sections.push(`\n【★テスト失敗の証拠（強い手がかり）】`);
+    failedTests.forEach(ft => {
+      sections.push(`  - ${ft.source}\n    期待: ${ft.want}\n    実際: ${ft.actual}${ft.error ? '\n    例外: ' + ft.error : ''}`);
+    });
+    sections.push(`→ テストが失敗してる以上、ほぼ確実にバグ。verdict=BUG, confidence高めで報告`);
+  }
+
+  // クロス関数コンテキスト: 呼び出し元/先のシグネチャ
+  const cross = collectCrossContext(node);
+  if (cross.callers.length > 0 || cross.callees.length > 0) {
+    sections.push(`\n【呼び出し関係（コンテキスト）】`);
+    if (cross.callers.length > 0) sections.push(`  呼ばれてる側: ${cross.callers.join(', ')}`);
+    if (cross.callees.length > 0) sections.push(`  呼んでる側:   ${cross.callees.join(', ')}`);
+    sections.push(`→ 周囲の関数と矛盾する型・引数・前提条件があれば指摘`);
+  }
+
+  // グラフ異常スコア（高いと「他関数と異質」）
+  if ((node.anomaly_score || 0) >= 50) {
+    sections.push(`\n【グラフ異常度: ${node.anomaly_score}/100】他関数と比べてメトリクスが外れている。注目関数。`);
+  }
+
+  // 期待挙動が一切なければ、その旨を伝える
+  if (!intent && !doctestsBlock && failedTests.length === 0) {
+    sections.push(`\n【期待挙動】明示無し。関数名/docstringから推測。意図不明なら verdict=SUSPICIOUS, reason に「意図メモ or doctest 追加を」`);
+  }
+
+  return sections.join('\n');
+}
+
+function collectFailedTestsForNode(node) {
+  const tr = window.currentTestResult;
+  if (!tr || !tr.results) return [];
+  // テストの source 内に node.label が含まれる && status=fail
+  return tr.results.filter(r =>
+    r.status === 'fail' && r.source && r.source.includes(node.label + '(')
+  ).map(r => ({
+    source: r.source,
+    want: r.want || '',
+    actual: r.actual || '',
+    error: r.error || '',
+  }));
+}
+
+function collectCrossContext(node) {
+  if (!currentResult) return { callers: [], callees: [] };
+  const edges = currentResult.edges || [];
+  const nodeMap = {};
+  (currentResult.nodes || []).forEach(n => { nodeMap[n.id] = n; });
+  const callerIds = edges.filter(e => e.target === node.id).map(e => e.source);
+  const calleeIds = edges.filter(e => e.source === node.id).map(e => e.target);
+  const fmt = id => {
+    const n = nodeMap[id];
+    if (!n) return id;
+    return `${n.label}(args=${n.n_args || 0})`;
+  };
+  return {
+    callers: [...new Set(callerIds.map(fmt))].slice(0, 6),
+    callees: [...new Set(calleeIds.map(fmt))].slice(0, 6),
+  };
+}
+
 function parseLLMReply(text, taskKey) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  let verdict = 'INFO', point = '', reason = '';
+  let verdict = 'INFO', point = '', reason = '', confidence = null, bugClass = 'none';
   for (const l of lines) {
-    if (/^判定[:：]/.test(l)) {
-      const m = l.match(/\[?([A-Z_]+)\]?/);
+    // 旧形式（日本語）と新形式（英語キー）両対応
+    if (/^(verdict|判定)[:：]/i.test(l)) {
+      const m = l.match(/[:：]\s*\[?([A-Z_]+)\]?/);
       if (m) verdict = m[1];
-    } else if (/^(要点|提案)[:：]/.test(l)) {
+    } else if (/^(confidence|確信度)[:：]/i.test(l)) {
+      const m = l.match(/(\d{1,3})/);
+      if (m) confidence = Math.min(100, Math.max(0, parseInt(m[1], 10)));
+    } else if (/^(bug_class|分類)[:：]/i.test(l)) {
+      const m = l.match(/[:：]\s*([a-z_]+)/);
+      if (m) bugClass = m[1];
+    } else if (/^(point|要点|提案)[:：]/i.test(l)) {
       point = l.split(/[:：]/).slice(1).join(':').trim();
-    } else if (/^理由[:：]/.test(l)) {
+    } else if (/^(reason|理由)[:：]/i.test(l)) {
       reason = l.split(/[:：]/).slice(1).join(':').trim();
     } else if (!point) {
       point = l;
     }
   }
-  return { verdict, point, reason, raw: text };
+  // confidence のデフォルト：BUG=70, SUSPICIOUS=40, OK=80, INFO=50
+  if (confidence === null) {
+    if (verdict === 'BUG') confidence = 70;
+    else if (verdict === 'SUSPICIOUS') confidence = 40;
+    else if (verdict === 'OK') confidence = 80;
+    else confidence = 50;
+  }
+  return { verdict, confidence, bugClass, point, reason, raw: text };
+}
+
+// グラフ異常スコア × LLM 確信度 × verdict から総合「レビュー優先度」を算出
+function computeReviewPriority(node, parsed) {
+  const anomaly = node.anomaly_score || 0;          // 0-100
+  const conf = parsed.confidence || 0;              // 0-100
+  const verdictWeight = parsed.verdict === 'BUG' ? 1.0
+                      : parsed.verdict === 'SUSPICIOUS' ? 0.6
+                      : parsed.verdict === 'REFACTOR_NEEDED' ? 0.5
+                      : 0.1;
+  // テスト失敗があれば最大ブースト
+  const hasFailedTest = collectFailedTestsForNode(node).length > 0 ? 25 : 0;
+  // (LLM verdict × confidence × 0.7) + (グラフ異常 × 0.3) + テスト失敗ブースト
+  return Math.min(100, Math.round(verdictWeight * conf * 0.7 + anomaly * 0.3 + hasFailedTest));
 }
 
 function severityClassFor(verdict) {
@@ -2409,12 +2536,36 @@ function buildLLMResultCard(node, parsed, taskKey, taskLabel) {
   const card = document.createElement('div');
   const sev = severityClassFor(parsed.verdict);
   card.className = 'llm-result-card ' + sev;
+  card.dataset.priority = parsed.priority || 0;
+
+  // 優先度バー（0-100）の色
+  const pri = parsed.priority || 0;
+  const priColor = pri >= 70 ? '#ff3b30' : pri >= 40 ? '#ff9500' : '#34c759';
+  const conf = parsed.confidence || 0;
+  const bugClassBadge = (parsed.bugClass && parsed.bugClass !== 'none')
+    ? `<span class="severity-badge" style="background:#f0e6ff;color:#5c2db0">${escapeHtml(parsed.bugClass)}</span>` : '';
+  const anomalyBadge = (node.anomaly_score || 0) >= 50
+    ? `<span class="severity-badge" style="background:#fff5e6;color:#a05a00" title="他関数と比べて構造的に異質">📊 異常度 ${node.anomaly_score}</span>` : '';
+  const testFailedBadge = collectFailedTestsForNode(node).length > 0
+    ? `<span class="severity-badge bad" title="テスト失敗あり">⚠️ テスト失敗</span>` : '';
+
   card.innerHTML = `
     <div class="header">
       <span class="target">${escapeHtml(node.label)}</span>
       <span class="severity-badge ${sev}">${escapeHtml(parsed.verdict)}</span>
+      <span class="severity-badge" style="background:#f0f0f0;color:#1d1d1f">確信度 ${conf}%</span>
+      ${bugClassBadge}
+      ${anomalyBadge}
+      ${testFailedBadge}
       <span style="font-size:11px;color:#86868b">${escapeHtml(taskLabel)}</span>
       <button class="show-3d-btn" type="button">→ Inspector</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin:6px 0">
+      <span style="font-size:10px;color:#86868b;width:60px">優先度</span>
+      <div style="flex:1;height:6px;background:#e5e5e5;border-radius:3px;overflow:hidden">
+        <div style="width:${pri}%;height:100%;background:${priColor}"></div>
+      </div>
+      <span style="font-size:11px;font-weight:600;width:40px;text-align:right;color:${priColor}">${pri}/100</span>
     </div>
     <div class="verdict">${escapeHtml(parsed.point || parsed.raw || '(空)')}</div>
     ${parsed.reason ? `<div class="reason">${escapeHtml(parsed.reason)}</div>` : ''}
@@ -3554,6 +3705,7 @@ function renderInspectorContent(node) {
         <div class="inspector-meta-item"><span class="k">媒介性</span><span class="v">${((node.betweenness || 0) * 100).toFixed(2)}%</span></div>
         <div class="inspector-meta-item"><span class="k">影響範囲</span><span class="v">${node.impact || 0} 関数</span></div>
         <div class="inspector-meta-item"><span class="k">セキュリティ</span><span class="v ${secCls}">${node.security || 0} 件</span></div>
+        <div class="inspector-meta-item" title="他関数と比べて構造的に異質か（z-score合算）"><span class="k">グラフ異常度</span><span class="v ${(node.anomaly_score || 0) >= 50 ? 'warn' : ''}">${node.anomaly_score || 0}/100</span></div>
       </div>
     </div>
   `;

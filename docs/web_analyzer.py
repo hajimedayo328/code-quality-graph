@@ -90,6 +90,27 @@ def _run_analysis(workdir: str) -> dict:
     )
 
     # ====== JSON化 ======
+    # ===== 構造的異常スコア（グラフ理論×統計） =====
+    # 各関数の複数メトリクスを z-score 合算 → 「外れ値=構造的に怪しい」の0-100スコア
+    nodes_for_anomaly = []
+    for qname, func in analyzer.functions.items():
+        pr = call_metrics.get("pagerank", {}).get(qname, 0)
+        bc = call_metrics.get("betweenness", {}).get(qname, 0)
+        in_deg = call_metrics.get("in_degree", {}).get(qname, 0)
+        out_deg = call_metrics.get("out_degree", {}).get(qname, 0)
+        nodes_for_anomaly.append({
+            "id": qname,
+            "complexity": func.complexity,
+            "cognitive": func.cognitive_complexity,
+            "lines": func.n_lines,
+            "n_args": func.n_args,
+            "pagerank": pr,
+            "betweenness": bc,
+            "in_degree": in_deg,
+            "out_degree": out_deg,
+        })
+    anomaly_scores = _calc_anomaly_scores(nodes_for_anomaly)
+
     nodes_json = []
     for qname, func in analyzer.functions.items():
         module = qname.rsplit(".", 1)[0] if "." in qname else ""
@@ -123,6 +144,8 @@ def _run_analysis(workdir: str) -> dict:
             "n_args": func.n_args,
             "is_private": func.is_private,
             "docstring": func.docstring,
+            # ===== 構造的異常スコア（0-100、高いほど他関数と異質） =====
+            "anomaly_score": anomaly_scores.get(qname, 0),
         })
 
     # エッジ重み = 同じ caller→callee ペアの呼び出し回数
@@ -186,6 +209,39 @@ def _run_analysis(workdir: str) -> dict:
 def analyze_json(code: str) -> str:
     """JSON文字列を返す便利ラッパー."""
     return json.dumps(analyze_single_file(code), ensure_ascii=False, default=str)
+
+
+def _calc_anomaly_scores(nodes_for_anomaly: list[dict]) -> dict:
+    """各関数の「構造的異常度」(0-100) を計算。
+
+    複数メトリクス（複雑度・認知・行数・引数・PageRank・媒介性・in/out-degree）の
+    z-score を合算し、外れ値ほど高スコア。「他関数と比べて異質な関数」を見つける。
+    LLM の意味判定とクロスして「グラフ的にも怪しい × LLM が違和感」を高優先化する用途。
+    """
+    if not nodes_for_anomaly:
+        return {}
+    metric_keys = ["complexity", "cognitive", "lines", "n_args",
+                   "pagerank", "betweenness", "in_degree", "out_degree"]
+    n = len(nodes_for_anomaly)
+    means: dict[str, float] = {}
+    stds: dict[str, float] = {}
+    for k in metric_keys:
+        vals = [float(node.get(k, 0) or 0) for node in nodes_for_anomaly]
+        m = sum(vals) / n
+        var = sum((v - m) ** 2 for v in vals) / n
+        means[k] = m
+        stds[k] = max(0.1, var ** 0.5)
+    result: dict[str, int] = {}
+    for node in nodes_for_anomaly:
+        z_sum = 0.0
+        for k in metric_keys:
+            v = float(node.get(k, 0) or 0)
+            z = abs((v - means[k]) / stds[k])
+            z_sum += min(z, 5.0)  # 1指標あたり上限5σ
+        # 全8指標で z_sum 最大40。0-100 に正規化（z_sum=10で100=異常）
+        score = min(100, round(z_sum * 10))
+        result[node["id"]] = score
+    return result
 
 
 # ========== Phase C: doctest実行 + 関数呼び出しトレース ==========
