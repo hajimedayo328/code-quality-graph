@@ -2080,7 +2080,7 @@ const LLM_MODEL_OPTIONS = {
   balanced: { id: 'Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC',   label: 'バランス (3B, 2GB)',     size: '2GB',   vram: '~2.5GB', rec: 'ミドルGPU 4GB+' },
   strong:   { id: 'Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC',   label: '高性能 Coder (7B, 5GB)', size: '5GB',   vram: '~5GB',   rec: 'ハイエンドGPU 6GB+' },
   latest:   { id: 'Qwen3.5-4B-q4f16_1-MLC',                  label: '最新汎用 (Qwen3.5 4B, 2.5GB)', size: '2.5GB', vram: '~3GB', rec: '最新世代の汎用モデル' },
-  reasoning:{ id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC', label: '推論特化 (R1-Distill 7B, 5GB)', size: '5GB', vram: '~5GB', rec: '思考過程ありの解析（実験）' },
+  reasoning:{ id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC', label: '推論特化 (R1-Distill 7B, 5GB)', size: '5GB', vram: '~5GB', rec: '⚠️ 実験的：思考連鎖型、1回応答に30秒〜2分。素直なコード解析は Qwen2.5-Coder 7B 推奨' },
 };
 
 const LLM_CONFIRM_KEY = 'cqg_llm_confirmed_v1';
@@ -2284,25 +2284,53 @@ async function clearLLMCache() {
 
 async function llmAsk(systemPrompt, userPrompt, opts = {}) {
   if (!_llmEngine || !_llmReady) throw new Error('LLM未初期化');
-  // 言語固定 + 出力フォーマットを強く制約してループ生成を防ぐ
+
+  // モデル別の挙動調整
+  const isReasoningModel = /R1|Distill|Reason/i.test(_llmModelId || '');
+  const lang = '日本語';
+
   const finalSystem = systemPrompt +
-    '\n\n【厳守】回答はすべて日本語で。指定の形式以外の文章を生成しない。' +
+    `\n\n【厳守】回答はすべて${lang}で。指定の形式以外の文章を生成しない。` +
     '同じ文を繰り返さない。各キーは1回だけ書く。' +
-    '回答は最大8行で完結させる。';
+    (isReasoningModel
+      ? '思考過程の出力は最小限に。<think> タグを使う場合は短くまとめ、必ず </think> で閉じてから本回答を書くこと。'
+      : '回答は最大8行で完結させる。');
+
   const reply = await _llmEngine.chat.completions.create({
     messages: [
       { role: 'system', content: finalSystem },
       { role: 'user', content: userPrompt },
     ],
-    temperature: opts.temperature ?? 0.5,         // 0.2→0.5: ループ脱出しやすく
+    temperature: opts.temperature ?? 0.5,
     top_p: opts.top_p ?? 0.9,
-    max_tokens: opts.max_tokens ?? 200,           // 320→200: 過剰生成を抑制
-    frequency_penalty: opts.frequency_penalty ?? 1.3,  // 同じ語の繰り返しを強く抑制
-    presence_penalty: opts.presence_penalty ?? 0.6,    // 新しい話題への誘導
+    // 推論モデルは思考過程に多く使うので max_tokens を増やす
+    max_tokens: opts.max_tokens ?? (isReasoningModel ? 1500 : 200),
+    frequency_penalty: opts.frequency_penalty ?? 1.3,
+    presence_penalty: opts.presence_penalty ?? 0.6,
   });
   let text = reply.choices?.[0]?.message?.content?.trim() ?? '';
-  // 念のため degeneration 検出: 同じ短い行が3回以上繰り返されたら以降を切る
+
+  // <think>...</think> 思考連鎖タグを除去（DeepSeek-R1 系）
+  text = _stripThinkTags(text);
+  // degeneration 検出
   text = _truncateLLMRepetition(text);
+  return text;
+}
+
+// 思考連鎖モデルの <think>...</think> ブロックを除去
+function _stripThinkTags(text) {
+  if (!text) return text;
+  // 閉じタグがある場合（複数も対応）
+  text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  // 開いたまま閉じてない場合（max_tokens 超え）→ 以降全部削除
+  text = text.replace(/<think>[\s\S]*$/i, '').trim();
+  // 開閉なしでも『Alright,』『Hmm』『Okay so』みたいな英語独白が混じってる場合
+  // 日本語の本回答が出るまでの英語独白を頭から削る（保守的に最初に出てくる
+  // ==SUMMARY== / verdict: / 判定: のいずれかを起点に切る）
+  const m = text.match(/(==SUMMARY==|verdict\s*[:：]|判定\s*[:：])/);
+  if (m && m.index > 100) {
+    text = text.slice(m.index).trim();
+  }
   return text;
 }
 
