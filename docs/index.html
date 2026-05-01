@@ -990,27 +990,15 @@ ZeroDivisionError: division by zero"></textarea>
         <div class="llm-task-grid">
           <div class="llm-task-card" id="llmTaskProject" onclick="runLLMTaskProject()" style="grid-column: 1 / -1; background:#fff8e1; border-color:#ffe082">
             <div class="task-title">🌐 プロジェクト整合性判定（最重要）</div>
-            <div class="task-desc">上の「📋 プロジェクト全体の目的」と各関数の役割を照合。「目的に貢献してる関数」「無関係な関数」「足りない処理」を一覧で出す。関数単体じゃなく<b>森を見る</b>。</div>
+            <div class="task-desc">上の「📋 プロジェクト全体の目的」と各関数の役割を照合。「目的に貢献してる関数」「無関係な関数」「足りない処理」を一覧で出す。関数単体じゃなく<b>森を見る</b>唯一のタスク。</div>
           </div>
           <div class="llm-task-card" id="llmTaskBugs" onclick="runLLMTaskBugs()">
             <div class="task-title">🔍 意味的バグ検出</div>
-            <div class="task-desc">コンパイルは通るが「論理が逆」「境界値ミス」「意図と違う動き」を発見</div>
-          </div>
-          <div class="llm-task-card" id="llmTaskSmells" onclick="runLLMTaskSmells()">
-            <div class="task-title">🚩 コードスメル深堀</div>
-            <div class="task-desc">静的検出（ネスト深・マジック数値・未使用import等）に加えて、命名・抽象度・嘘コメントなどLLMでしか分からないスメルを指摘</div>
-          </div>
-          <div class="llm-task-card" id="llmTaskRedundant" onclick="runLLMTaskRedundant()">
-            <div class="task-title">✂️ 冗長判定（短く書ける？）</div>
-            <div class="task-desc">「これ何行で書ける？」を判定。同じ動作のもっと短い版を提案、または「これで十分」と判定</div>
-          </div>
-          <div class="llm-task-card" id="llmTaskRefactor" onclick="runLLMTaskRefactor()">
-            <div class="task-title">♻️ リファクタ提案</div>
-            <div class="task-desc">複雑度が高い・認知的負荷が大きい関数を選んで構造的な改善案を1つ提示</div>
+            <div class="task-desc">コンパイルは通るが「論理が逆」「境界値ミス」「意図と違う動き」を発見。静的解析で拾えない論理エラーを補完。</div>
           </div>
           <div class="llm-task-card" id="llmTaskExplain" onclick="runLLMTaskExplain()">
             <div class="task-title">📝 関数を1行で説明</div>
-            <div class="task-desc">各関数が何をやっているかを短い日本語で要約（コメント代わり）</div>
+            <div class="task-desc">各関数が何をやっているかを短い日本語で要約（コメント代わり）。</div>
           </div>
         </div>
         <div class="llm-progress-bar" id="llmRunProgress" style="display:none">
@@ -2209,7 +2197,7 @@ function setLLMUiState(state, progressText) {
 }
 
 function setLLMTaskCardsEnabled(enabled) {
-  ['llmTaskProject', 'llmTaskBugs', 'llmTaskSmells', 'llmTaskRedundant', 'llmTaskRefactor', 'llmTaskExplain'].forEach(id => {
+  ['llmTaskProject', 'llmTaskBugs', 'llmTaskExplain'].forEach(id => {
     const c = document.getElementById(id);
     if (!c) return;
     if (enabled) c.classList.remove('disabled');
@@ -2389,19 +2377,6 @@ reason: 具体的な該当箇所（行のキーワードを引用）
 日本語で簡潔に。`);
 }
 
-async function runLLMTaskRefactor() {
-  if (!_llmReady || !currentResult) return;
-  await runLLMOverFunctions('refactor', 'リファクタ提案', `あなたはPythonコードレビューア。
-複雑さ・認知負荷を下げる具体的な改善を1つだけ提示してください。
-回答形式:
-verdict: REFACTOR_NEEDED / OK
-confidence: 0-100
-bug_class: none
-point: 改善案を1〜2文
-reason: 該当箇所の引用
-日本語で簡潔に。`, n => (n.complexity || 0) >= 4 || (n.cognitive || 0) >= 5);
-}
-
 async function runLLMTaskExplain() {
   if (!_llmReady || !currentResult) return;
   await runLLMOverFunctions('explain', '関数説明', `あなたはPythonの先生。
@@ -2412,38 +2387,6 @@ confidence: 80
 bug_class: none
 point: <1行説明>
 reason: -`);
-}
-
-async function runLLMTaskSmells() {
-  if (!_llmReady || !currentResult) return;
-  await runLLMOverFunctions('smells', 'コードスメル深堀', `あなたはPythonコードレビューア。静的解析が拾えないスメルだけを厳しく検出する。
-
-【超重要：偽陽性回避】
-- スメルが見当たらない関数は迷わず verdict=OK にする。「何か言わなきゃ」で
-  無理矢理ケチをつけるのは厳禁。
-- 「目的が不明確」「コメントが必要」のような曖昧な指摘は禁止。
-  コードと関数名から十分意図が読めるなら verdict=OK。
-- 短い関数（10行以下）で命名・実装が一致してれば原則 OK。
-- 確信度70%未満なら必ず verdict=OK にする（自信がない指摘は無価値）。
-- 確信度 100 は禁止（最大99）。AI判定で 100% 確信は不誠実。
-
-【検出すべきスメル】（はっきり該当する場合のみ）
-  bad_naming: 変数名 x/tmp/data2 等、誰が見ても意味不明
-  poor_abstraction: 抽象レベルが極端にバラバラ（例: 1関数内で文字列処理とDB操作とログ出力）
-  lying_comment: コメントが実装と明確に矛盾（例: コメント「足し算」、実装は引き算）
-  god_function: 30行超で 5つ以上の独立した責務を持つ
-  unclear_intent: 関数名・引数・戻り値・docstring が全て曖昧で、コードを読んでも何のためかわからない
-  copy_paste: ほぼ同じパターンが3回以上同関数内で繰り返されている
-  none: 上記いずれにも明確に該当しない
-
-【出力形式】（同じキーは1回だけ）
-verdict: SMELL_FOUND / OK
-confidence: 0-99 の整数（70未満なら verdict=OK にする）
-bug_class: <上記から1つ。OK なら none>
-point: SMELL_FOUND の場合は1〜2文で具体的問題。OK の場合は「<実装名・命名・抽象度>の点で適切」のように肯定理由を1文。
-reason: SMELL_FOUND の場合のみ該当箇所の具体引用。OK なら「-」。
-
-日本語、簡潔、繰り返し禁止。`);
 }
 
 // === プロジェクト整合性判定（全関数を「目次」化して1リクエストで判定） ===
@@ -2631,37 +2574,6 @@ async function runLLMTaskProject() {
     setLLMTaskCardsEnabled(true);
     setTimeout(() => { progressEl.style.display = 'none'; }, 1000);
   }
-}
-
-async function runLLMTaskRedundant() {
-  if (!_llmReady || !currentResult) return;
-  await runLLMOverFunctions('redundant', '冗長判定', `あなたはPythonの簡潔さ評論家。「このコードは動作を一切変えずに短く書けるか」のみ判定。
-
-【★絶対ルール】
-1. **動作が1ミリでも変わる提案は禁止**:
-   - バグ修正（不等号修正・条件追加・round()変更等）→ これは別タスクの仕事
-   - 仕様変更（log呼び出し削除・別モジュール導入・引数追加等）→ 範囲外
-   - 副作用変更（return追加・例外送出変更）→ 範囲外
-   どれかに該当するなら verdict=CONCISE で「短縮するには動作変更が必要」と書け。
-2. **既存実装と同じ提案は禁止**:
-   - 「self.products.values()を直接イテレート」→既にそう書いてるなら言うな
-   - コードを必ず精読し、既に実装されてる方法を「提案」しない。
-3. 確信度70%未満なら verdict=CONCISE にする（自信ない短縮提案は無価値）。
-
-【判定基準】
-  REDUCIBLE: 動作完全に同一で確実に短く書ける（具体案あり）。
-             例: 「for+if のリスト → リスト内包」「冗長な中間変数の省略」「重複条件の合体」
-  ARGUABLE: 動作同一で短く書けるが可読性トレードオフ
-  CONCISE: 既に十分短い、または動作変えずには短くできない
-
-【出力形式】
-verdict: REDUCIBLE / ARGUABLE / CONCISE
-confidence: 1-99（70未満は verdict=CONCISE 推奨）
-bug_class: none
-point: 短縮案 or 判定理由（1〜2文）。動作が変わるなら verdict=CONCISE にして「動作変更必要」
-reason: REDUCIBLE/ARGUABLE のみ、削れる箇所の具体的引用
-
-日本語、簡潔。`);
 }
 
 // doctest を「期待挙動の例」として抽出（LLMプロンプト用）
@@ -2971,26 +2883,6 @@ function renderLLMSectionForNode(node) {
       <div class="inspector-section-title">🤖 LLM 意味バグ検出（${r.bugs.verdict}）</div>
       <div style="font-size:12px">${escapeHtml(r.bugs.point || '')}</div>
       ${r.bugs.reason ? `<div style="font-size:11px;color:#aaa;margin-top:4px">${escapeHtml(r.bugs.reason)}</div>` : ''}
-    </div>`);
-  }
-  if (r.refactor) {
-    items.push(`<div class="inspector-section llm-section">
-      <div class="inspector-section-title">🤖 LLM リファクタ提案（${r.refactor.verdict}）</div>
-      <div style="font-size:12px">${escapeHtml(r.refactor.point || '')}</div>
-    </div>`);
-  }
-  if (r.smells) {
-    items.push(`<div class="inspector-section llm-section">
-      <div class="inspector-section-title">🤖 LLM コードスメル深堀（${r.smells.verdict}）</div>
-      <div style="font-size:12px">${escapeHtml(r.smells.point || '')}</div>
-      ${r.smells.reason ? `<div style="font-size:11px;color:#aaa;margin-top:4px">${escapeHtml(r.smells.reason)}</div>` : ''}
-    </div>`);
-  }
-  if (r.redundant) {
-    items.push(`<div class="inspector-section llm-section">
-      <div class="inspector-section-title">🤖 LLM 冗長判定（${r.redundant.verdict}）</div>
-      <div style="font-size:12px">${escapeHtml(r.redundant.point || '')}</div>
-      ${r.redundant.reason ? `<div style="font-size:11px;color:#aaa;margin-top:4px">${escapeHtml(r.redundant.reason)}</div>` : ''}
     </div>`);
   }
   if (r.explain) {
