@@ -2564,6 +2564,53 @@ async function runLLMTaskProject() {
     `;
     resultsEl.appendChild(card);
 
+    // ★ LLM 見逃しチェック：強制候補にあるが reply に含まれない関数を自動表示
+    const missedItems = [];
+    securityHits.forEach(n => {
+      if (!reply.includes(n.label)) {
+        const issues = (n.security_issues || []).join(', ');
+        missedItems.push({
+          label: n.label,
+          reason: `🔓 セキュリティ問題 [${issues}]`,
+          severity: 'bad',
+        });
+      }
+    });
+    isolatedReal.forEach(n => {
+      if (!reply.includes(n.label)) {
+        missedItems.push({
+          label: n.label,
+          reason: '🚨 ISOLATED（誰からも呼ばれてない）',
+          severity: 'warn',
+        });
+      }
+    });
+
+    if (missedItems.length > 0) {
+      const missCard = document.createElement('div');
+      missCard.className = 'llm-result-card warn';
+      missCard.dataset.priority = 95;
+      const itemsHtml = missedItems.map(m => `
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0">
+          <span class="severity-badge ${m.severity}" style="min-width:60px">見逃し</span>
+          <span style="font-family:'SF Mono',Menlo,monospace;font-weight:600">${escapeHtml(m.label)}</span>
+          <span style="font-size:12px;color:#86868b">${escapeHtml(m.reason)}</span>
+        </div>
+      `).join('');
+      missCard.innerHTML = `
+        <div class="header">
+          <span class="target">⚠ LLMが取り上げ忘れた候補</span>
+          <span class="severity-badge warn">${missedItems.length} 件</span>
+          <span style="font-size:11px;color:#86868b">静的検出ベース・LLMの応答に登場しないもの</span>
+        </div>
+        <div style="margin-top:8px">${itemsHtml}</div>
+        <div style="font-size:11px;color:#86868b;margin-top:8px;line-height:1.5">
+          軽量LLMはプロンプトの強制候補リスト後半を読み飛ばすことがあります。これらは静的解析で確実に検出された問題で、人間レビュー時に必ず確認してください。
+        </div>
+      `;
+      resultsEl.appendChild(missCard);
+    }
+
     progressFill.style.width = '100%';
     status.textContent = 'プロジェクト整合性判定 完了';
   } catch (e) {
