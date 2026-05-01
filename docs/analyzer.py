@@ -63,6 +63,8 @@ class FunctionInfo:
     # ===== コードスメル (静的検出) =====
     code_smells: list[dict] = field(default_factory=list)  # [{type, severity, message}]
     max_nest_depth: int = 0       # 関数ボディの最大ネスト深さ
+    # ===== ダンダーメソッド判定（__init__/__str__等は呼び出され方が特殊） =====
+    is_dunder: bool = False       # 名前が __xxx__ パターン（ISOLATED判定からは除外したい）
 
 
 @dataclass
@@ -221,6 +223,8 @@ class CodeAnalyzer:
 
                 # ===== コードスメル検出 =====
                 smells, max_depth = _detect_code_smells(node)
+                # ダンダーメソッド判定（__init__, __str__, __repr__ 等）
+                is_dunder_name = node.name.startswith("__") and node.name.endswith("__")
 
                 func = FunctionInfo(
                     name=node.name, qualified_name=qname,
@@ -241,6 +245,7 @@ class CodeAnalyzer:
                     is_generator=is_generator,
                     code_smells=smells,
                     max_nest_depth=max_depth,
+                    is_dunder=is_dunder_name,
                 )
                 self.functions[qname] = func
                 mod.functions.append(qname)

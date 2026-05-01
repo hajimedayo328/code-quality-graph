@@ -157,6 +157,10 @@ def _run_analysis(workdir: str) -> dict:
             "max_nest_depth": getattr(func, "max_nest_depth", 0),
             # ===== ノード分類（hub/bridge/danger/isolated/normal） =====
             "kind": kinds.get(qname, "normal"),
+            # ===== ダンダーメソッド（__init__等、ISOLATED 判定が誤解を招く） =====
+            "is_dunder": getattr(func, "is_dunder", False),
+            # ===== セキュリティ問題の具体内容（LLMプロンプトに渡す） =====
+            "security_issues": list(getattr(func, "security_issues", [])),
         })
 
     # エッジ重み = 同じ caller→callee ペアの呼び出し回数
