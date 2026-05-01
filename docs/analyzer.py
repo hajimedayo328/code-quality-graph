@@ -167,13 +167,16 @@ class CodeAnalyzer:
                 end_line = getattr(node, "end_lineno", node.lineno)
 
                 # ソースハッシュ（重複検出用）
-                func_source = "\n".join(lines[node.lineno - 1:end_line]) if end_line <= len(lines) else ""
+                # def 行を除外して関数本体だけでハッシュ → 関数名違いの重複も検出
+                body_start = node.lineno  # 0-based で言うと node.lineno (def行の次)
+                body_lines = lines[body_start:end_line] if end_line <= len(lines) else []
                 # 空白・コメント除去した正規化ハッシュ
                 normalized = "\n".join(
-                    l.strip() for l in func_source.splitlines()
+                    l.strip() for l in body_lines
                     if l.strip() and not l.strip().startswith("#")
                 )
                 source_hash = hashlib.md5(normalized.encode()).hexdigest()[:12]
+                func_source = "\n".join(lines[node.lineno - 1:end_line]) if end_line <= len(lines) else ""
 
                 # 認知的複雑度
                 cog_complexity = _calc_cognitive_complexity(node)

@@ -110,6 +110,12 @@ def _run_analysis(workdir: str) -> dict:
             "out_degree": out_deg,
         })
     anomaly_scores = _calc_anomaly_scores(nodes_for_anomaly)
+    # ===== kind 分類（HUB / BRIDGE / DANGER / ISOLATED / NORMAL） =====
+    kinds = _classify_node_kinds(
+        list(analyzer.functions.values()),
+        call_metrics,
+        func_scores,
+    )
 
     nodes_json = []
     for qname, func in analyzer.functions.items():
@@ -149,6 +155,8 @@ def _run_analysis(workdir: str) -> dict:
             # ===== コードスメル（静的検出、層A） =====
             "code_smells": getattr(func, "code_smells", []),
             "max_nest_depth": getattr(func, "max_nest_depth", 0),
+            # ===== ノード分類（hub/bridge/danger/isolated/normal） =====
+            "kind": kinds.get(qname, "normal"),
         })
 
     # エッジ重み = 同じ caller→callee ペアの呼び出し回数
@@ -213,6 +221,59 @@ def _run_analysis(workdir: str) -> dict:
 def analyze_json(code: str) -> str:
     """JSON文字列を返す便利ラッパー."""
     return json.dumps(analyze_single_file(code), ensure_ascii=False, default=str)
+
+
+def _classify_node_kinds(funcs: list, call_metrics: dict, func_scores: dict) -> dict:
+    """各関数を hub / bridge / danger / isolated / normal に分類。
+
+    フロント側 classifyNodes と整合。バックエンド側でも同じ判定が
+    できるようにテストランナーから利用可能に。
+    閾値はサンプル規模が小さい場合も拾えるよう、フロント版より少し緩める。
+    """
+    isolated = set(call_metrics.get("isolated", []))
+    pagerank = call_metrics.get("pagerank", {})
+    betweenness = call_metrics.get("betweenness", {})
+    in_degree = call_metrics.get("in_degree", {})
+
+    n = max(1, len(funcs))
+    # 上位 max(1, ceil(20%)) を候補に
+    top_n = max(1, (n + 4) // 5)
+
+    sorted_pr = sorted(funcs, key=lambda f: pagerank.get(f.qualified_name, 0), reverse=True)
+    sorted_bc = sorted(funcs, key=lambda f: betweenness.get(f.qualified_name, 0), reverse=True)
+
+    # PageRank 上位 + 「平均PR の2倍以上」または「in_degree >= 2」を hub に
+    pr_vals = [pagerank.get(f.qualified_name, 0) for f in funcs]
+    avg_pr = sum(pr_vals) / n if pr_vals else 0
+    hub_ids: set = set()
+    for f in sorted_pr[:top_n]:
+        pr_v = pagerank.get(f.qualified_name, 0)
+        in_v = in_degree.get(f.qualified_name, 0)
+        if pr_v > max(0.05, avg_pr * 1.8) or in_v >= 2:
+            hub_ids.add(f.qualified_name)
+
+    bridge_ids: set = set()
+    for f in sorted_bc[:top_n]:
+        bc_v = betweenness.get(f.qualified_name, 0)
+        if bc_v > 0.001:
+            bridge_ids.add(f.qualified_name)
+
+    result: dict[str, str] = {}
+    for f in funcs:
+        qn = f.qualified_name
+        score = func_scores.get(qn, 100)
+        if qn in isolated:
+            kind = "isolated"
+        elif len(f.security_issues) > 0 or score < 60:
+            kind = "danger"
+        elif qn in hub_ids:
+            kind = "hub"
+        elif qn in bridge_ids:
+            kind = "bridge"
+        else:
+            kind = "normal"
+        result[qn] = kind
+    return result
 
 
 def _calc_anomaly_scores(nodes_for_anomaly: list[dict]) -> dict:
