@@ -2463,51 +2463,73 @@ async function runLLMTaskProject() {
   status.textContent = 'プロジェクト整合性判定 実行中...';
 
   try {
-    // 全関数のサマリー（目次）を作る
+    // 全関数のサマリー（目次）を作る ─ 判定材料となるフラグも含める
     const nodes = currentResult.nodes || [];
     const summary = nodes.map(n => {
-      const docFlag = n.docstring ? '📖' : '';
-      const role = n.is_entry ? '[entry]' : n.func_type === 'method' ? '[method]' : n.func_type === 'async' ? '[async]' : '';
-      return `- ${n.label}(${n.n_args || 0}args) @${n.file}:${n.line} ${role}${docFlag} score=${n.score} lines=${n.lines}`;
+      const flags = [];
+      if (n.is_entry) flags.push('entry');
+      if (n.is_isolated) flags.push('🚨ISOLATED');
+      if ((n.security || 0) > 0) flags.push(`🔓SEC×${n.security}`);
+      if (n.kind === 'danger') flags.push('⚠DANGER');
+      if (n.kind === 'hub') flags.push('★HUB');
+      if (n.kind === 'bridge') flags.push('★BRIDGE');
+      if (n.func_type === 'method') flags.push('method');
+      if (n.func_type === 'async') flags.push('async');
+      if ((n.score || 100) < 60) flags.push(`低スコア${n.score}`);
+      const flagsStr = flags.length ? ` [${flags.join(', ')}]` : '';
+      const docFlag = n.docstring ? ' 📖' : '';
+      // スメル種別も渡す（判定材料）
+      const smellTypes = (n.code_smells || []).map(s => s.type);
+      const smellsStr = smellTypes.length ? ` smells=[${smellTypes.join(',')}]` : '';
+      return `- ${n.label}(${n.n_args || 0}args) @${n.file}:${n.line}${flagsStr}${docFlag}${smellsStr}`;
     }).join('\n');
 
-    const systemPrompt = `あなたはシニアアーキテクト。プロジェクトの目的と実装の整合性を判定する。
+    const systemPrompt = `あなたはシニアアーキテクト。プロジェクトの目的と実装の整合性を厳しく判定する。
+
+【判定の優先候補】
+入力の関数リストに付いてるフラグを必ず使え:
+- 🚨ISOLATED: 誰からも呼ばれてない孤立関数 → ほぼ確実に SUSPICIOUS（プロジェクト目的に必要なら呼ばれてるはず）
+- 🔓SEC×N: セキュリティ問題あり（eval/exec/shell等） → 在庫管理など普通のアプリなら SUSPICIOUS
+- ⚠DANGER または 低スコア: 要改善で目的を阻害する可能性 → SUSPICIOUS 候補
+- smells=[...] で複数あり: 雑な実装、目的達成の信頼性を下げる → SUSPICIOUS 候補
 
 【絶対禁止】
-1. 入力で渡された「関数一覧」のフォーマット（例: "slug(1args) @file:10 [method]"）を
-   そのままコピペすること
-2. ラベルとして「関数名:」「機能名:」という文字列を **そのまま書くこと**
-   → 必ず実際の関数名（例: Product.__init__, calc_tax）に置き換える
-3. SUSPICIOUS / MISSING に単に "None" や "なし" だけ書くこと
-   → 該当ゼロでも自然文で「全関数が目的に貢献している」のように1文書く
+1. 入力フォーマットをそのままコピペ（例: "foo(1args) @file:10"）
+2. ラベル「関数名:」「機能名:」を文字通り書く
+3. 🚨ISOLATED や 🔓SEC があるのに SUSPICIOUS を空にする
+4. プロジェクト目的に明らかに不要な機能（評価/集計/シェル/eval等）があるのに見逃す
+5. SUSPICIOUS / MISSING に "None" だけ書く（該当ゼロでも理由を1文で説明）
 
-【出力形式】（このマーカーは必ずこの順で書く）
+【出力形式】
 
 ==SUMMARY==
 判定: ALIGNED / PARTIAL / MISALIGNED / UNKNOWN
 要点: <1〜2文で全体評価>
 
 ==CONTRIBUTING==
-（目的に貢献している関数、最大5個。各行は「<実際の関数名>: <寄与の理由>」の形）
+（目的に貢献している関数、最大5個）
 - <実関数名>: <寄与説明 15〜40字>
 
 ==SUSPICIOUS==
-（目的と無関係/逆効果に見える関数、最大5個。無ければ自然文で1文）
-- <実関数名>: <なぜ怪しいか>
+（目的と無関係/逆効果に見える関数。🚨ISOLATED や 🔓SEC があれば必ず候補に。最大5個）
+- <実関数名>: <なぜ怪しいか・該当フラグも引用>
 
 ==MISSING==
-（目的達成に必要だが見当たらない処理、最大3個。無ければ自然文で1文）
+（目的達成に必要だが見当たらない処理、最大3個。例: 永続化/バリデーション/エラー処理/テスト）
 - <機能のキーワード>: <なぜ必要か>
 
 【良い例】
 ==CONTRIBUTING==
 - Product.__init__: SKU検証して商品データを初期化、在庫管理の起点
 - calc_tax: 税込価格計算、UI表示の中核ロジック
-- find_low_stock: 低在庫商品の検出、目的の「アラート」を実現
 
-【NG例（こう書くな）】
-==CONTRIBUTING==
-- 関数名: 商品の初期化   ← "関数名:" を文字通り書いてる、関数名が抜けている
+==SUSPICIOUS==
+- run_user_script: eval使用(🔓SEC×1)、在庫管理目的に無関係でセキュリティ穴
+- unused_helper: 🚨ISOLATED、誰からも呼ばれず目的達成に貢献していない
+
+==MISSING==
+- 永続化: 現状オンメモリのみ、再起動で在庫データ消失。在庫管理として致命
+- 入力バリデーション: 価格・数量の範囲チェックが見当たらない
 
 すべて日本語、簡潔、同じ文を繰り返さない。`;
 
