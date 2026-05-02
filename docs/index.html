@@ -2513,6 +2513,10 @@ async function runLLMTaskProject() {
     テストコードの引数は magic_number 検出されるが SUSPICIOUS じゃない）
 14. **電卓・数学ライブラリ等の純粋関数プロジェクトに永続化を MISSING で要求**
     （プロジェクト目的に「データ管理」「ストレージ」等が無ければ永続化は不要）
+15. **【最重要】ユーザープロンプトの「★コード読み取りファクト」と矛盾する判定の禁止**
+    例: ファクトに「entry 関数: main」と書いてあるのに「main 関数が存在しない」と書く
+    例: ファクトに「docstring を持つ関数: add」とあるのに「doctest がない」と書く
+    こういう事実誤認は致命的、必ずファクト欄を読んでから判定する
 
 【出力形式】
 
@@ -2555,13 +2559,24 @@ async function runLLMTaskProject() {
 
 すべて日本語、簡潔、同じ文を繰り返さない。`;
 
+    // ファクト確認用の「コード読み取りチェック」を生成（LLM の事実誤認を防ぐ）
+    const entryFuncs = nodes.filter(n => n.is_entry).map(n => n.label);
+    const hasDocstring = nodes.filter(n => n.docstring).map(n => n.label);
+    const factCheck = `\n【★コード読み取りファクト（事実、これに反する判定を禁止）】\n` +
+      `- 関数数: ${nodes.length} 個\n` +
+      `- ファイル数: ${[...new Set(nodes.map(n => n.file))].length} 個\n` +
+      `- entry 関数（main 等）: ${entryFuncs.length > 0 ? entryFuncs.join(', ') : 'なし'}\n` +
+      `- docstring を持つ関数: ${hasDocstring.length > 0 ? hasDocstring.join(', ') : 'なし'}\n` +
+      `これらは静的解析で確定した事実。「main 関数が存在しない」「docstring がない」など事実と反する判定をしないこと。\n`;
+
     // 強制候補は冒頭に配置（軽量モデルは後半を見逃しがち）
-    const userPrompt = `【プロジェクトの目的】\n${projectIntent}\n\n` +
-      (forcedCandidates ? forcedCandidates.replace(/^\n\n/, '') + '\n\n' : '') +
-      `【参考: 実装されている関数の一覧（${nodes.length}個、メタ情報のみ。この行をそのままコピペしないこと）】\n` +
+    const userPrompt = `【プロジェクトの目的】\n${projectIntent}\n` +
+      factCheck +
+      (forcedCandidates ? forcedCandidates.replace(/^\n\n/, '\n') + '\n' : '') +
+      `\n【参考: 実装されている関数の一覧（${nodes.length}個、メタ情報のみ。この行をそのままコピペしないこと）】\n` +
       `${summary}\n\n` +
       `上記を元に、上の【出力形式】に従って判定してください。\n` +
-      `特に冒頭の「強制 SUSPICIOUS 候補」は必ず取り上げること。`;
+      `特に冒頭の「強制取り上げ候補」は必ず登場させ、ファクトと反する判定はしないこと。`;
     const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: 900, temperature: 0.4 });
 
     // 結果カード（プロジェクト整合性は1枚の大きいカード）
