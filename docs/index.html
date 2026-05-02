@@ -3008,7 +3008,7 @@ function buildTrace3D(calls) {
       fy: -i * 30,
       fz: 0,
       color: 'rgb(' + r + ',' + g + ',' + b + ')',
-      _targetVal: 8,
+      _targetVal: 35,    // ノード大きく（旧8 → 35、半径3倍に）
       val: 0.001,  // 初期非表示
     };
   });
@@ -3059,10 +3059,10 @@ function buildTrace3D(calls) {
     graph.d3Force('center', null);
   } catch (e) { /* ignore */ }
 
-  // カメラ位置: 上から少し見下ろす
+  // カメラ位置: 上から少し見下ろす（ノード拡大に合わせて少し引く）
   setTimeout(() => {
     const midY = -calls.length * 15;
-    graph.cameraPosition({ x: 0, y: midY, z: Math.max(200, calls.length * 30) }, { x: 0, y: midY, z: 0 }, 800);
+    graph.cameraPosition({ x: 0, y: midY, z: Math.max(280, calls.length * 35) }, { x: 0, y: midY, z: 0 }, 800);
   }, 300);
 
   _trace3dGraph = graph;
@@ -3513,8 +3513,8 @@ function moduleEdgeWidth(link, nodeMap) {
 
 // ===== Tier 1: ノード形状をfunc_typeで切替 =====
 function buildNodeMeshFor(node) {
-  // ベース半径を大幅拡大（旧 1.6倍 → 3.5倍、最小 0.6 → 2.5）
-  const radius = Math.max(2.5, Math.cbrt(Math.max(0.001, node.val || 4)) * 3.5);
+  // ベース半径を大幅拡大（旧 3.5倍 → 5.5倍、最小 2.5 → 4.5）
+  const radius = Math.max(4.5, Math.cbrt(Math.max(0.001, node.val || 4)) * 5.5);
   const color = new THREE.Color(node.color || '#88ccff');
   let geom;
   const t = node.func_type || 'function';
@@ -3849,8 +3849,8 @@ function runLabelTracker(graph, labels, key) {
       const p = mesh.position;
       const c = graph.graph2ScreenCoords(p.x, p.y, p.z);
       const node = mesh.__data || {};
-      // buildNodeMeshFor の radius (cbrt(val)*3.5) + 形状余白 + ラベル間隔
-      const radius = Math.cbrt(node.val || 4) * 7 + 10;
+      // buildNodeMeshFor の radius (cbrt(val)*5.5) + 形状余白 + ラベル間隔
+      const radius = Math.cbrt(node.val || 4) * 11 + 14;
       lbl.style.transform = `translate(-50%, -100%) translate(${c.x}px, ${c.y - radius}px)`;
       const dx = p.x - cam.position.x, dy = p.y - cam.position.y, dz = p.z - cam.position.z;
       const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
