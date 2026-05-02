@@ -137,6 +137,61 @@ body { background: #f5f5f7; color: #1d1d1f; font-family: -apple-system, BlinkMac
   background: #007aff; padding: 2px 8px; border-radius: 8px; font-weight: 600; font-size: 11px;
 }
 
+/* ===== 実行トレース（縦長3D + 値遷移ログ） ===== */
+.trace-input-wrap { background: #fafafa; border: 1px solid #e5e5e5; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+.trace-label { display: block; font-size: 12px; color: #86868b; font-weight: 600; margin-bottom: 6px; }
+.trace-input {
+  width: 100%; padding: 10px 12px; border: 1px solid #d2d2d7; border-radius: 8px;
+  font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+  font-size: 13px; color: #1d1d1f; background: #fff;
+}
+.trace-input:focus { outline: none; border-color: #007aff; }
+.trace-input-actions { display: flex; gap: 8px; margin-top: 8px; }
+.trace-input-actions .btn-primary { padding: 8px 18px; border-radius: 10px; font-size: 13px; font-weight: 600; }
+
+.trace-meta {
+  background: #f0f7ff; border: 1px solid #cfe3ff; border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 12px; font-size: 13px;
+  display: flex; gap: 16px; flex-wrap: wrap;
+}
+.trace-meta b { font-family: 'SF Mono', Menlo, monospace; }
+.trace-meta .err { color: #c0392b; flex-basis: 100%; font-weight: 600; }
+
+.trace-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; align-items: start; }
+@media (max-width: 900px) { .trace-layout { grid-template-columns: 1fr; } }
+
+.trace-3d-wrap { min-width: 0; }
+.trace-log-wrap {
+  background: #fafafa; border: 1px solid #e5e5e5; border-radius: 12px;
+  padding: 12px; max-height: 600px; overflow-y: auto;
+}
+.trace-log-header { font-size: 13px; font-weight: 700; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #e5e5e5; }
+.trace-log-list { display: flex; flex-direction: column; gap: 6px; }
+.trace-log-item {
+  border-radius: 8px; padding: 8px 10px; cursor: pointer;
+  font-family: 'SF Mono', Menlo, monospace; font-size: 11px; line-height: 1.4;
+  border: 1px solid transparent; transition: all 0.12s;
+}
+.trace-log-item:hover { background: #f0f7ff; border-color: #cfe3ff; }
+.trace-log-item.call { background: #fff; border-left: 3px solid #007aff; }
+.trace-log-item.ret  { background: #fff; border-left: 3px solid #34c759; }
+.trace-log-item.highlighted { background: #fffacd !important; border-color: #ffaa00 !important; }
+.trace-log-item .step { color: #86868b; font-size: 10px; }
+.trace-log-item .func { color: #1d1d1f; font-weight: 700; }
+.trace-log-item .args { color: #007aff; }
+.trace-log-item .ret-val { color: #2ba84a; font-weight: 600; }
+.trace-log-item .indent { color: #ccc; }
+
+.trace-stdout {
+  margin-top: 12px; background: #0a0a14; color: #d4d4d4;
+  border-radius: 10px; padding: 12px;
+  font-family: 'SF Mono', Menlo, monospace; font-size: 12px;
+  white-space: pre-wrap; max-height: 200px; overflow: auto;
+}
+.trace-stdout-header {
+  color: #86868b; font-size: 11px; margin-bottom: 4px; font-weight: 600;
+}
+
 /* ===== Phase D: 進化を見る ===== */
 .evo-mode-tabs { display: flex; gap: 6px; margin: 12px 0 16px; border-bottom: 1px solid #e5e5e5; }
 .evo-mode-btn {
@@ -840,6 +895,7 @@ tr:hover td { background: #f9f9fb; }
         <button class="tab active" data-tab="problems">問題点</button>
         <button class="tab" data-tab="graph">呼び出しマップ</button>
         <button class="tab" data-tab="tests">🧪 テスト実行</button>
+        <button class="tab" data-tab="trace">⏱ 実行トレース</button>
         <button class="tab" data-tab="evolution">📅 進化を見る</button>
         <button class="tab" data-tab="llm" id="tabBtnLlm" style="display:none">🤖 LLM分析</button>
         <button class="tab" data-tab="imports">Import依存</button>
@@ -900,6 +956,42 @@ ZeroDivisionError: division by zero"></textarea>
         </div>
         <div id="testSummary" class="test-summary" style="display:none"></div>
         <div id="testResults" class="test-results"></div>
+      </div>
+
+      <div id="tab-trace" class="tab-content">
+        <div class="section-desc">
+          <b>適当な値で関数を実行</b>して、どの順番でどんな値が流れたかを <b>縦長の3D + 値遷移ログ</b> で見るデバッガ的タブ。<br>
+          意図と実装の食い違いを「どこで狂ったか」直感的に追える。すべてブラウザ内で実行（外部送信ゼロ）。
+        </div>
+        <div class="trace-input-wrap">
+          <label class="trace-label">実行する式（Pythonコード、関数呼び出しを書く）</label>
+          <input type="text" id="traceExprInput" class="trace-input"
+            placeholder="例: add(2, 3) / main() / TaskManager().add(Task(1, 'x', 3, '2030-01-01'))"
+            value="add(2, 3)">
+          <div class="trace-input-actions">
+            <button class="btn" type="button" onclick="loadTraceSample()">📝 解析中の関数から推測</button>
+            <button class="btn-primary" id="traceRunBtn" type="button" onclick="runTrace()">▶ 実行 ＆ トレース</button>
+          </div>
+          <div class="hint" id="traceStatus" style="margin-top:6px">準備完了</div>
+        </div>
+        <div id="traceResultArea" class="trace-result" style="display:none">
+          <div class="trace-meta" id="traceMeta"></div>
+          <div class="trace-layout">
+            <div class="trace-3d-wrap">
+              <div class="graph-box" style="height:560px">
+                <div id="trace3d-container" style="width:100%; height:560px"></div>
+              </div>
+              <div class="hint" style="font-size:11px;margin-top:6px">
+                縦軸=時間（上から下に呼ばれた順）、横軸=ネスト深さ。クリックで右ログ該当行にスクロール。
+              </div>
+            </div>
+            <div class="trace-log-wrap">
+              <div class="trace-log-header">📋 値遷移ログ</div>
+              <div id="traceLogList" class="trace-log-list"></div>
+            </div>
+          </div>
+          <div id="traceStdout" class="trace-stdout" style="display:none"></div>
+        </div>
       </div>
 
       <div id="tab-evolution" class="tab-content">
@@ -977,25 +1069,7 @@ ZeroDivisionError: division by zero"></textarea>
           <button class="btn" type="button" onclick="clearLLMCache()" style="margin-left:auto" title="ダウンロード済みモデルをブラウザキャッシュから削除（ディスク容量を解放）">🗑 キャッシュ削除</button>
         </div>
 
-        <!-- プロジェクト全体の意図メモ（全タスクのプロンプトに自動投入） -->
-        <div class="evo-info" style="background:#fff8e1;border-color:#ffe082;color:#1d1d1f">
-          <div style="font-weight:700;margin-bottom:6px">📋 プロジェクト全体の目的（全LLMタスクに必ず投入されます）</div>
-          <textarea
-            id="projectIntent"
-            placeholder="例: 「飲食店向け在庫管理ツール。商品のCRUD・税込価格表示・低在庫アラート・カテゴリ別検索が主機能。Web UIのバックエンド想定。Pythonクラスベース」"
-            oninput="onProjectIntentInput(this)"
-            style="width:100%;min-height:80px;padding:8px 10px;border:1px solid #d2d2d7;border-radius:8px;font-family:inherit;font-size:13px;line-height:1.5;resize:vertical;background:#fff;color:#1d1d1f"
-          ></textarea>
-          <div style="font-size:11px;color:#86868b;margin-top:4px">
-            <b>50〜200字で具体的に</b>書くと精度が大きく上がります。「何をする/誰向け/主要機能/前提」を含める。<br>
-            <b>NG例</b>:「教えて」「便利ツール」 → LLMが判定基準を持てず無意味な出力に。
-          </div>
-        </div>
         <div class="llm-task-grid">
-          <div class="llm-task-card" id="llmTaskProject" onclick="runLLMTaskProject()" style="grid-column: 1 / -1; background:#fff8e1; border-color:#ffe082">
-            <div class="task-title">🌐 プロジェクト整合性判定（最重要）</div>
-            <div class="task-desc">上の「📋 プロジェクト全体の目的」と各関数の役割を照合。「目的に貢献してる関数」「無関係な関数」「足りない処理」を一覧で出す。関数単体じゃなく<b>森を見る</b>唯一のタスク。</div>
-          </div>
           <div class="llm-task-card" id="llmTaskBugs" onclick="runLLMTaskBugs()">
             <div class="task-title">🔍 意味的バグ検出</div>
             <div class="task-desc">コンパイルは通るが「論理が逆」「境界値ミス」「意図と違う動き」を発見。静的解析で拾えない論理エラーを補完。</div>
@@ -1137,7 +1211,7 @@ async function initPyodide() {
   await pyodide.runPythonAsync(`
 import sys
 sys.path.insert(0, '.')
-from web_analyzer import analyze_single_file, analyze_multiple_files, run_doctests_with_trace
+from web_analyzer import analyze_single_file, analyze_multiple_files, run_doctests_with_trace, trace_execution
   `);
 
   pyodideReady = true;
@@ -2201,7 +2275,7 @@ function setLLMUiState(state, progressText) {
 }
 
 function setLLMTaskCardsEnabled(enabled) {
-  ['llmTaskProject', 'llmTaskBugs', 'llmTaskExplain'].forEach(id => {
+  ['llmTaskBugs', 'llmTaskExplain'].forEach(id => {
     const c = document.getElementById(id);
     if (!c) return;
     if (enabled) c.classList.remove('disabled');
@@ -2393,374 +2467,6 @@ point: <1行説明>
 reason: -`);
 }
 
-// === プロジェクト整合性判定（全関数を「目次」化して1リクエストで判定） ===
-async function runLLMTaskProject() {
-  if (!_llmReady || !currentResult) return;
-  const projectIntent = getProjectIntent().trim();
-  if (!projectIntent) {
-    alert('上の「📋 プロジェクト全体の目的」欄を先に書いてください。\n\n例: 「タスク管理ツール。CRUD・優先度ソート・締切ソート」\n\nこれが無いと「目的との整合性」を判定できません。');
-    return;
-  }
-  if (projectIntent.length < 25) {
-    const ok = confirm(
-      `プロジェクト目的が短すぎます（${projectIntent.length}字）。\n\n` +
-      `「${projectIntent}」だけだと LLM が判定基準を持てず、\n` +
-      `「目次のコピペ」のような無意味な出力になりがちです。\n\n` +
-      `推奨: 50〜200字で「何をする/何のため/誰向け/主要機能」を書く。\n` +
-      `例: 「飲食店向け在庫管理。商品のCRUD・税込価格・低在庫アラート・ロット管理。Web UI想定」\n\n` +
-      `このまま実行しますか？（精度は期待しないで）`
-    );
-    if (!ok) return;
-  }
-
-  setLLMTaskCardsEnabled(false);
-  const status = document.getElementById('llmTabStatus');
-  const resultsEl = document.getElementById('llmResults');
-  const progressEl = document.getElementById('llmRunProgress');
-  const progressFill = document.getElementById('llmRunProgressFill');
-  resultsEl.innerHTML = '';
-  progressEl.style.display = 'block';
-  progressFill.style.width = '20%';
-  status.textContent = 'プロジェクト整合性判定 実行中...';
-
-  try {
-    // 全関数のサマリー（目次）を作る ─ 判定材料となるフラグを LLM 専用記法で含める
-    const nodes = currentResult.nodes || [];
-
-    // セキュリティ問題ある関数を別途リストアップ（LLMが必ず取り上げるよう）
-    const securityHits = nodes.filter(n => (n.security || 0) > 0);
-    const isolatedReal = nodes.filter(n => n.is_isolated && !n.is_dunder);  // ダンダー除外
-
-    const summary = nodes.map(n => {
-      const flags = [];
-      if (n.is_entry) flags.push('entry');
-      // ダンダー(__init__等) は ISOLATED でも誤解を招くので別フラグ
-      if (n.is_isolated && n.is_dunder) flags.push('dunder');
-      else if (n.is_isolated) flags.push('🚨ISOLATED');
-      if ((n.security || 0) > 0) {
-        // 具体内容を渡す（"eval使用" 等）
-        const issues = (n.security_issues || []).slice(0, 2).join('|');
-        flags.push(`🔓SEC[${issues || n.security}]`);
-      }
-      if (n.kind === 'danger') flags.push('⚠DANGER');
-      if (n.kind === 'hub') flags.push('★HUB');
-      if (n.kind === 'bridge') flags.push('★BRIDGE');
-      if (n.func_type === 'method') flags.push('method');
-      if (n.func_type === 'async') flags.push('async');
-      if ((n.score || 100) < 60) flags.push(`低スコア${n.score}`);
-      const flagsStr = flags.length ? ` [${flags.join(', ')}]` : '';
-      const docFlag = n.docstring ? ' 📖' : '';
-      const smellTypes = (n.code_smells || []).map(s => s.type);
-      const smellsStr = smellTypes.length ? ` smells=[${smellTypes.join(',')}]` : '';
-      return `- ${n.label}(${n.n_args || 0}args) @${n.file}:${n.line}${flagsStr}${docFlag}${smellsStr}`;
-    }).join('\n');
-
-    // LLMが見逃さないように「強制取り上げ候補」を別セクションで明示
-    let forcedCandidates = '';
-    if (securityHits.length > 0 || isolatedReal.length > 0) {
-      forcedCandidates = '\n\n【★強制取り上げ候補（必ず判定・SUSPICIOUS or MISSING のどちらかで論じる）】\n';
-      // セキュリティ問題は SUSPICIOUS 確定
-      securityHits.forEach(n => {
-        const issues = (n.security_issues || []).join(', ');
-        forcedCandidates += `  🔓 ${n.label}: セキュリティ問題 [${issues}] → SUSPICIOUS 確定（プロジェクト目的にeval/shell が必要と明記がない限り）\n`;
-      });
-      // 孤立関数は役割で振り分けが必要なことを明示
-      isolatedReal.forEach(n => {
-        forcedCandidates += `  🚨 ${n.label}: ISOLATED → 役割を判断: 目的の中核なら MISSING に「呼び出し漏れ」と書き、目的に無関係なら SUSPICIOUS\n`;
-      });
-      forcedCandidates += '→ 上記は1つも見逃さないこと。CONTRIBUTING/SUSPICIOUS/MISSING のどれかに必ず登場させる。';
-    }
-
-    const systemPrompt = `あなたはシニアアーキテクト。プロジェクトの目的と実装の整合性を厳しく判定する。
-
-【判定の優先候補】
-入力の関数リストに付いてるフラグを使い分けろ:
-
-- 🔓SEC[内容]: セキュリティ問題あり（eval/exec/shell等）
-  → 普通のアプリ（在庫管理・タスク管理等）なら **必ず最優先で SUSPICIOUS**。
-    プロジェクト目的に明示されてない限り、このフラグは見逃すな。
-
-- 🚨ISOLATED: 誰からも呼ばれてない孤立関数。**3パターンに分類**:
-  (a) その関数の役割がプロジェクト目的の **中核機能** ＝ 「呼ばれるべきなのに呼ばれてない」
-      → SUSPICIOUS じゃなく **MISSING** に「○○の呼び出しが見当たらない」と書く
-  (b) **公開API系**（save_*, load_*, export_*, parse_*, format_* 等のユーティリティ）
-      → ISOLATED でも CLI/モジュール API として外部から呼ばれる前提なので **SUSPICIOUS にしない**
-      （main から呼ばれてないことを根拠に怪しいとは言うな）
-  (c) その関数の役割がプロジェクト目的に **無関係** ＝ そもそも要らない（unused/deprecated/another等の名前が付いた未使用ヘルパー）
-      → SUSPICIOUS
-
-- ⚠DANGER または 低スコア: 要改善で目的を阻害する可能性 → SUSPICIOUS 候補
-
-- smells=[...] で複数あり: 雑な実装、目的達成の信頼性を下げる → SUSPICIOUS 候補
-
-- dunder: __init__ / __str__ 等の特殊メソッド → ISOLATED でも怪しくない
-  （呼び出され方が特殊なだけ）。SUSPICIOUS にも MISSING にも入れない。
-
-【絶対禁止】
-1. 入力フォーマット（"foo(1args) @file:10 [...] smells=[...]"等）をそのままコピペ
-2. **関数名に "(Nargs)" や "@file:line" を付けて出力**（label は関数名のみ。"add(2args)" ではなく "add" と書く）
-3. ラベル「関数名:」「機能名:」を文字通り書く
-4. 🚨ISOLATED や 🔓SEC があるのに SUSPICIOUS を空にする
-5. プロジェクト目的に明らかに不要な機能（評価/集計/シェル/eval等）があるのに見逃す
-6. SUSPICIOUS / MISSING に "None" だけ書く（該当ゼロでも理由を1文で説明）
-7. **入力の関数 label を勝手に改変・補完**（"add_stock__" や "Inventory.add_stock" のように勝手に補完しない）
-8. ダンダーメソッド（[dunder] フラグ付き）を SUSPICIOUS に入れる
-9. **🔓SEC フラグ付きの関数を1個でも見逃す**（複数あれば全部書く、1個拾って満足するな）
-10. **小さなプロジェクト（5関数以下）で CONTRIBUTING を無理やり3個埋める**
-    （関数が少なければ2個でもOK。逆に20関数超なら最低3個）
-11. **MISSING を空 or 1個で止める**（複数の観点から最低2個。ただしプロジェクト目的に
-    「データ保持/状態管理」が含まれない場合は永続化を MISSING に入れない）
-12. **SUMMARY で言及した問題を MISSING/SUSPICIOUS で省略**
-13. **magic_number 1〜2個だけで SUSPICIOUS にする**（"print(2,3)" のような
-    テストコードの引数は magic_number 検出されるが SUSPICIOUS じゃない）
-14. **電卓・数学ライブラリ等の純粋関数プロジェクトに永続化を MISSING で要求**
-    （プロジェクト目的に「データ管理」「ストレージ」等が無ければ永続化は不要）
-15. **【最重要】ユーザープロンプトの「★コード読み取りファクト」と矛盾する判定の禁止**
-    例: ファクトに「entry 関数: main」と書いてあるのに「main 関数が存在しない」と書く
-    例: ファクトに「docstring を持つ関数: add」とあるのに「doctest がない」と書く
-    こういう事実誤認は致命的、必ずファクト欄を読んでから判定する
-16. **【超最重要】プロジェクト目的を読み飛ばし、過去テンプレ（在庫管理/価格・数量等）を流用する禁止**
-    タスク管理目的なのに「在庫管理として致命的」「価格チェック」「価格・数量範囲」など
-    別ジャンル用語を使うのは完全な幻覚。MISSING の各項目は必ず「目の前のプロジェクト目的に対して
-    何が足りないか」のみ書く。価格・在庫・数量・商品 等の語はプロジェクト目的に明示されてない限り使用禁止。
-18. **コード内に既に存在する機能を MISSING で要求する禁止**
-    例: save_tasks/load_tasks が関数一覧にあるのに MISSING で「永続化が無い」と書くのは矛盾
-    関数一覧をよく読み、機能の有無を確認してから MISSING を書く
-19. **存在しない関数名を勝手に発明して書く禁止**
-    例: 関数一覧に "TaskManager.add" があるのに "add_task" と書く、"save_tasks" を "save_data" と書く
-    必ずサマリーに書かれた label をそのまま使う
-20. **「役割不明確」「用途不明」など曖昧な理由禁止**
-    SUSPICIOUS の reason は必ず具体的に: 「セキュリティ穴」「目的に無関係な集計」など
-17. **公開API系の ISOLATED 関数を SUSPICIOUS に入れない**
-    save_* / load_* / export_* / parse_* / format_* などの命名は
-    「外部から呼ばれる前提」のユーティリティ。main から呼ばれてないだけでは怪しくない
-
-【出力形式】
-
-==SUMMARY==
-判定: ALIGNED / PARTIAL / MISALIGNED / UNKNOWN
-要点: <1〜2文で全体評価>
-
-==CONTRIBUTING==
-（目的に貢献している関数、最大5個。**プロジェクト関数数の60%目安**:
- 5関数以下なら2個でOK / 10〜20関数なら3個 / 20超なら最低3個）
-- <実関数名>: <寄与説明 15〜40字>
-
-==SUSPICIOUS==
-（目的と無関係/逆効果に見える関数。最大5個）
-**【★絶対ルール】「強制取り上げ候補」リストにある 🔓SEC 関数は1つも省略せず全て列挙すること。
-2個あれば2行、3個あれば3行書く。1個拾って満足するな。**
-ただし magic_number 1〜2個だけ・複雑度低い関数は SUSPICIOUS じゃない。
-- <実関数名>: <なぜ怪しいか・該当フラグも引用>
-
-==MISSING==
-（プロジェクト目的に**実際に必要なもの**を最大3個。1〜2個でも可）
-- バリデーション/エラー処理/テスト/ロギング/中核ISOLATED関数の呼び出し漏れ等
-- **永続化は「データ管理/状態保持/ストレージ」が目的に明示されてる時のみ書く**
-  電卓・純粋関数ライブラリには永続化を要求しない
-- 該当ゼロなら自然文で「目的達成に追加機能の不足は見られない」と1文書く
-- <機能のキーワード>: <なぜ必要か>
-
-【良い例】
-==CONTRIBUTING==
-- Product.__init__: SKU検証して商品データを初期化、在庫管理の起点
-- calc_tax: 税込価格計算、UI表示の中核ロジック
-
-==SUSPICIOUS==
-- run_user_script: eval使用(🔓SEC×1)、在庫管理目的に無関係でセキュリティ穴
-- unused_helper: 🚨ISOLATED、誰からも呼ばれず目的達成に貢献していない
-
-==MISSING==
-- 永続化: 現状オンメモリのみ、再起動で在庫データ消失。在庫管理として致命
-- 入力バリデーション: 価格・数量の範囲チェックが見当たらない
-
-すべて日本語、簡潔、同じ文を繰り返さない。`;
-
-    // ファクト確認用の「コード読み取りチェック」を生成（LLM の事実誤認を防ぐ）
-    const entryFuncs = nodes.filter(n => n.is_entry).map(n => n.label);
-    const hasDocstring = nodes.filter(n => n.docstring).map(n => n.label);
-    const factCheck = `\n【★コード読み取りファクト（事実、これに反する判定を禁止）】\n` +
-      `- 関数数: ${nodes.length} 個\n` +
-      `- ファイル数: ${[...new Set(nodes.map(n => n.file))].length} 個\n` +
-      `- entry 関数（main 等）: ${entryFuncs.length > 0 ? entryFuncs.join(', ') : 'なし'}\n` +
-      `- docstring を持つ関数: ${hasDocstring.length > 0 ? hasDocstring.join(', ') : 'なし'}\n` +
-      `これらは静的解析で確定した事実。「main 関数が存在しない」「docstring がない」など事実と反する判定をしないこと。\n` +
-      `\n【★プロジェクト目的の再確認（必読、他プロジェクトのテンプレ流用禁止）】\n` +
-      `${projectIntent}\n` +
-      `→ MISSING の項目は必ず上記の目的に対して書くこと。「在庫管理」「価格・数量」など別ジャンルの用語混入は完全禁止。\n`;
-
-    // 強制候補は冒頭に配置（軽量モデルは後半を見逃しがち）
-    const userPrompt = `【プロジェクトの目的】\n${projectIntent}\n` +
-      factCheck +
-      (forcedCandidates ? forcedCandidates.replace(/^\n\n/, '\n') + '\n' : '') +
-      `\n【参考: 実装されている関数の一覧（${nodes.length}個、メタ情報のみ。この行をそのままコピペしないこと）】\n` +
-      `${summary}\n\n` +
-      `上記を元に、上の【出力形式】に従って判定してください。\n` +
-      `特に冒頭の「強制取り上げ候補」は必ず登場させ、ファクトと反する判定はしないこと。`;
-    const reply = await llmAsk(systemPrompt, userPrompt, { max_tokens: 900, temperature: 0.4 });
-
-    // 結果カード（プロジェクト整合性は1枚の大きいカード）
-    const card = document.createElement('div');
-    const verdict = (reply.match(/判定[:：]\s*([A-Z_]+)/) || [])[1] || 'PARTIAL';
-    const sev = verdict === 'MISALIGNED' ? 'bad' : verdict === 'PARTIAL' ? 'warn' : 'good';
-    card.className = 'llm-result-card ' + sev;
-    card.dataset.priority = 100;
-    card.innerHTML = `
-      <div class="header">
-        <span class="target">🌐 プロジェクト整合性判定</span>
-        <span class="severity-badge ${sev}">${escapeHtml(verdict)}</span>
-        <span style="font-size:11px;color:#86868b">${nodes.length} 関数を一括分析</span>
-      </div>
-      <div class="verdict" style="white-space:pre-wrap;font-family:'SF Mono',Menlo,monospace;font-size:12px;line-height:1.6;background:#fafafa;padding:10px 12px;border-radius:8px;margin-top:6px">${escapeHtml(reply)}</div>
-      <div style="font-size:10px;color:#aaa;margin-top:6px;padding-top:6px;border-top:1px dashed #eee">
-        💡 LLMによる解釈です。下の「⚠ LLMが取り上げ忘れた候補」も合わせて確認、最終判断はあなたが行ってください。
-      </div>
-    `;
-    resultsEl.appendChild(card);
-
-    // ★ LLM 見逃しチェック：強制候補にあるが reply に含まれない関数を自動表示
-    const missedItems = [];
-    securityHits.forEach(n => {
-      if (!reply.includes(n.label)) {
-        const issues = (n.security_issues || []).join(', ');
-        missedItems.push({
-          label: n.label,
-          reason: `🔓 セキュリティ問題 [${issues}]`,
-          severity: 'bad',
-        });
-      }
-    });
-    isolatedReal.forEach(n => {
-      if (!reply.includes(n.label)) {
-        missedItems.push({
-          label: n.label,
-          reason: '🚨 ISOLATED（誰からも呼ばれてない）',
-          severity: 'warn',
-        });
-      }
-    });
-
-    if (missedItems.length > 0) {
-      const missCard = document.createElement('div');
-      missCard.className = 'llm-result-card warn';
-      missCard.dataset.priority = 95;
-      const itemsHtml = missedItems.map(m => `
-        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0">
-          <span class="severity-badge ${m.severity}" style="min-width:60px">見逃し</span>
-          <span style="font-family:'SF Mono',Menlo,monospace;font-weight:600">${escapeHtml(m.label)}</span>
-          <span style="font-size:12px;color:#86868b">${escapeHtml(m.reason)}</span>
-        </div>
-      `).join('');
-      missCard.innerHTML = `
-        <div class="header">
-          <span class="target">⚠ LLMが取り上げ忘れた候補</span>
-          <span class="severity-badge warn">${missedItems.length} 件</span>
-          <span style="font-size:11px;color:#86868b">静的検出ベース・LLMの応答に登場しないもの</span>
-        </div>
-        <div style="margin-top:8px">${itemsHtml}</div>
-        <div style="font-size:11px;color:#86868b;margin-top:8px;line-height:1.5">
-          軽量LLMはプロンプトの強制候補リスト後半を読み飛ばすことがあります。これらは静的解析で確実に検出された問題で、人間レビュー時に必ず確認してください。
-        </div>
-      `;
-      resultsEl.appendChild(missCard);
-    }
-
-    // ===== 静的解析ベースの「事実」カード（LLM の幻覚に対する証拠）=====
-    const factCard = document.createElement('div');
-    factCard.className = 'llm-result-card good';
-    factCard.dataset.priority = 90;
-    // パターンマッチで機能の有無を検出
-    const fnLabels = nodes.map(n => n.label.toLowerCase());
-    const allFnNames = fnLabels.join(' ');
-    const checks = [
-      { name: '永続化', pattern: /save|load|persist|dump|write|store/, evidence: nodes.filter(n => /save|load|persist|dump|store/i.test(n.label)) },
-      { name: 'エラー処理', pattern: /catch|handle|error|except/, evidence: nodes.filter(n => /catch|handle.*error|except/i.test(n.label)) },
-      { name: 'バリデーション', pattern: /valid|check|verify/, evidence: nodes.filter(n => /valid|check|verify/i.test(n.label)) },
-      { name: 'テスト', pattern: /test_|_test/, evidence: nodes.filter(n => /test_|_test|^test$/i.test(n.label)) },
-      { name: 'ロギング', pattern: /log|trace/, evidence: nodes.filter(n => /^log$|logger/i.test(n.label)) },
-      { name: '非同期', pattern: /async/, evidence: nodes.filter(n => n.func_type === 'async') },
-      { name: 'ジェネレータ', pattern: /generator/, evidence: nodes.filter(n => n.func_type === 'generator') },
-    ];
-    const checkRows = checks.map(c => {
-      const hit = c.evidence.length > 0;
-      const icon = hit ? '✅' : '❌';
-      const detail = hit
-        ? `<span style="color:#1b7a3d">あり: ${c.evidence.map(n => n.label).slice(0, 3).join(', ')}${c.evidence.length > 3 ? `…他${c.evidence.length - 3}個` : ''}</span>`
-        : '<span style="color:#86868b">関数名パターンで検出されず</span>';
-      return `<div style="display:flex;gap:10px;padding:5px 0;font-size:12px">
-        <span style="min-width:24px">${icon}</span>
-        <span style="font-weight:600;min-width:90px">${c.name}</span>
-        <span>${detail}</span>
-      </div>`;
-    }).join('');
-    factCard.innerHTML = `
-      <div class="header">
-        <span class="target">📊 静的解析による事実チェック</span>
-        <span class="severity-badge" style="background:#e8f8ef;color:#1b7a3d">機能の有無</span>
-        <span style="font-size:11px;color:#86868b">関数名パターンで検出</span>
-      </div>
-      <div style="margin-top:8px">${checkRows}</div>
-      <div style="font-size:11px;color:#86868b;margin-top:8px;line-height:1.5">
-        💡 LLMが「○○がない」と言っても、ここで✅なら実装あり。LLMの幻覚や見落としを検証する用。
-        関数名ベースの簡易検出なので、別命名や1関数内の実装は拾えない場合あり。
-      </div>
-    `;
-    resultsEl.appendChild(factCard);
-
-    progressFill.style.width = '100%';
-    status.textContent = 'プロジェクト整合性判定 完了';
-  } catch (e) {
-    console.error(e);
-    resultsEl.innerHTML = `<div class="llm-result-card bad"><div class="header"><span class="target">エラー</span></div><div class="verdict">${escapeHtml(e.message)}</div></div>`;
-    status.textContent = 'エラーが発生しました';
-  } finally {
-    setLLMTaskCardsEnabled(true);
-    setTimeout(() => { progressEl.style.display = 'none'; }, 1000);
-  }
-}
-
-// doctest を「期待挙動の例」として抽出（LLMプロンプト用）
-function extractDoctestsFromSource(src) {
-  if (!src) return '';
-  const lines = src.split('\n');
-  const blocks = [];
-  let cur = null;
-  for (const line of lines) {
-    const m = line.match(/^\s*>>>\s?(.*)$/);
-    if (m) {
-      if (cur) blocks.push(cur);
-      cur = { source: m[1], want: [] };
-    } else if (cur) {
-      // 次の >>> または空行 まで want に蓄積
-      const stripped = line.trim();
-      if (!stripped || /^\s*"""/.test(line)) {
-        if (cur.want.length || cur.source) blocks.push(cur);
-        cur = null;
-      } else {
-        cur.want.push(stripped);
-      }
-    }
-  }
-  if (cur) blocks.push(cur);
-  return blocks.map(b => `>>> ${b.source}\n${b.want.join('\n')}`).join('\n');
-}
-
-// 関数の「意図メモ」（ユーザーが Inspector で書いた内容、localStorage 永続）
-const INTENT_KEY = 'cqg_intents_v1';
-function getIntent(nodeId) {
-  try {
-    const all = JSON.parse(localStorage.getItem(INTENT_KEY) || '{}');
-    return all[nodeId] || '';
-  } catch (e) { return ''; }
-}
-function setIntent(nodeId, text) {
-  try {
-    const all = JSON.parse(localStorage.getItem(INTENT_KEY) || '{}');
-    if (text && text.trim()) all[nodeId] = text.trim();
-    else delete all[nodeId];
-    localStorage.setItem(INTENT_KEY, JSON.stringify(all));
-  } catch (e) { /* ignore */ }
-}
 
 async function runLLMOverFunctions(taskKey, taskLabel, systemPrompt, filterFn) {
   const nodes = (currentResult.nodes || []).filter(n => !filterFn || filterFn(n));
@@ -3038,6 +2744,233 @@ function renderLLMSectionForNode(node) {
     </div>`);
   }
   return items.join('');
+}
+
+// ===== 実行トレース（縦長3D + 値遷移ログ） =====
+
+let _traceData = null;
+let _trace3dGraph = null;
+
+function loadTraceSample() {
+  // 解析済み関数からエントリ候補を推測してプレースホルダ更新
+  if (!currentResult || !(currentResult.nodes || []).length) {
+    alert('先に「コードを入力」セクションで解析してください');
+    return;
+  }
+  const nodes = currentResult.nodes;
+  // entry 関数優先 → 引数なし関数 → docstring 持ち関数
+  const entry = nodes.find(n => n.is_entry);
+  const noargs = nodes.find(n => (n.n_args || 0) === 0 && !n.is_dunder);
+  const docFn = nodes.find(n => n.docstring && (n.n_args || 0) <= 3 && !n.is_dunder);
+  const target = entry || noargs || docFn || nodes[0];
+  let suggestion;
+  if (!target) return;
+  if ((target.n_args || 0) === 0) {
+    suggestion = target.label + '()';
+  } else {
+    // 整数引数を推測してデフォ値入れる
+    const placeholders = [];
+    for (let i = 0; i < (target.n_args || 0); i++) placeholders.push(String(i + 1));
+    suggestion = target.label + '(' + placeholders.join(', ') + ')';
+  }
+  document.getElementById('traceExprInput').value = suggestion;
+  document.getElementById('traceStatus').textContent = '推測: ' + suggestion + '（必要に応じて編集してください）';
+}
+
+async function runTrace() {
+  const expr = (document.getElementById('traceExprInput').value || '').trim();
+  if (!expr) { alert('実行する式を入力してください'); return; }
+
+  syncFileListFromDOM();
+  const validFiles = fileList.filter(f => f.code && f.code.trim().length > 0);
+  if (validFiles.length === 0) { alert('コードを入力してください'); return; }
+
+  const status = document.getElementById('traceStatus');
+  const btn = document.getElementById('traceRunBtn');
+  btn.disabled = true;
+  status.textContent = '実行中...';
+
+  try {
+    if (!pyodideReady) await initPyodide();
+
+    // ファイル名重複対策
+    const usedNames = new Set();
+    const filesDict = {};
+    for (const f of validFiles) {
+      let name = (f.name || '').trim() || 'untitled.py';
+      if (!name.endsWith('.py')) name += '.py';
+      let safe = name; let i = 2;
+      while (usedNames.has(safe)) { safe = name.replace(/\.py$/, '_' + i + '.py'); i++; }
+      usedNames.add(safe);
+      filesDict[safe] = f.code;
+    }
+
+    pyodide.globals.set('trace_files_input', pyodide.toPy(filesDict));
+    pyodide.globals.set('trace_expr_input', expr);
+    await pyodide.runPythonAsync(`
+import json
+_trace_result = trace_execution(dict(trace_files_input), trace_expr_input)
+_trace_result_json = json.dumps(_trace_result, ensure_ascii=False, default=str)
+    `);
+    const result = JSON.parse(pyodide.globals.get('_trace_result_json'));
+    _traceData = result;
+    renderTraceResult(result);
+    status.textContent = '完了：' + result.trace.length + ' イベント';
+  } catch (e) {
+    console.error(e);
+    status.textContent = 'エラー: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderTraceResult(result) {
+  const area = document.getElementById('traceResultArea');
+  area.style.display = 'block';
+
+  // メタ情報
+  const calls = result.trace.filter(t => t.event === 'call');
+  const returns = result.trace.filter(t => t.event === 'return');
+  const meta = document.getElementById('traceMeta');
+  meta.innerHTML =
+    '<span>呼び出し: <b>' + calls.length + '</b></span>' +
+    '<span>戻り: <b>' + returns.length + '</b></span>' +
+    (result.expr_value !== null && result.expr_value !== undefined
+      ? '<span>結果: <b>' + escapeHtml(result.expr_value) + '</b></span>' : '') +
+    (result.error ? '<div class="err">⚠ エラー: ' + escapeHtml(result.error) + '</div>' : '');
+
+  // stdout
+  const stdoutEl = document.getElementById('traceStdout');
+  if (result.stdout && result.stdout.trim()) {
+    stdoutEl.style.display = 'block';
+    stdoutEl.innerHTML = '<div class="trace-stdout-header">📤 標準出力</div>' + escapeHtml(result.stdout);
+  } else {
+    stdoutEl.style.display = 'none';
+  }
+
+  // 縦長3Dビュー
+  buildTrace3D(calls);
+
+  // 右ログ
+  buildTraceLog(result.trace);
+}
+
+function buildTrace3D(calls) {
+  const el = document.getElementById('trace3d-container');
+  el.innerHTML = '';
+  if (calls.length === 0) {
+    el.innerHTML = '<p style="color:#ccc;text-align:center;padding-top:40px">ユーザー定義関数が呼ばれていません</p>';
+    return;
+  }
+
+  // ノード位置: y=-step*30 (縦に並ぶ)、x=depth*60 (ネスト深いほど右)
+  const nodes = calls.map((c, i) => {
+    // 色: ステップ進行で青→紫→赤
+    const t = calls.length > 1 ? i / (calls.length - 1) : 0;
+    const r = Math.round(80 + t * 175);
+    const g = Math.round(120 - t * 80);
+    const b = Math.round(255 - t * 100);
+    return {
+      id: 't' + c.step,
+      label: c.func,
+      step: c.step,
+      args: c.args,
+      return_value: c.return_value,
+      return_step: c.return_step,
+      depth: c.depth,
+      lineno: c.lineno,
+      fx: c.depth * 60 - (calls[0].depth || 0) * 60,
+      fy: -i * 30,
+      fz: 0,
+      color: 'rgb(' + r + ',' + g + ',' + b + ')',
+      val: 6,
+    };
+  });
+
+  // 隣接 step で連結
+  const links = [];
+  for (let i = 0; i < calls.length - 1; i++) {
+    links.push({ source: 't' + calls[i].step, target: 't' + calls[i + 1].step });
+  }
+
+  if (typeof ForceGraph3D === 'undefined') return;
+
+  const graph = ForceGraph3D({ controlType: 'orbit' })(el)
+    .graphData({ nodes, links })
+    .nodeLabel(n => '<div style="font-weight:600">step ' + n.step + ': ' + escapeHtml(n.label) + '</div>'
+      + '<div style="font-size:11px">引数: ' + escapeHtml(JSON.stringify(n.args || {})) + '</div>'
+      + (n.return_value !== null && n.return_value !== undefined
+          ? '<div style="font-size:11px;color:#9efba4">戻り値: ' + escapeHtml(n.return_value) + '</div>' : ''))
+    .nodeColor(n => n.color)
+    .nodeVal(n => n.val)
+    .nodeOpacity(0.95)
+    .nodeResolution(20)
+    .linkColor(() => 'rgba(180,180,255,0.5)')
+    .linkWidth(2)
+    .linkOpacity(0.7)
+    .linkDirectionalArrowLength(6)
+    .linkDirectionalArrowRelPos(1)
+    .linkDirectionalParticles(2)
+    .linkDirectionalParticleSpeed(0.01)
+    .linkDirectionalParticleColor(() => '#aaccff')
+    .backgroundColor('rgba(10,10,26,1)')
+    .width(el.offsetWidth)
+    .height(560)
+    .onNodeClick(n => {
+      // 右ログのその step にスクロール＆ハイライト
+      const item = document.querySelector('#traceLogList [data-step="' + n.step + '"]');
+      if (item) {
+        document.querySelectorAll('.trace-log-item.highlighted').forEach(e => e.classList.remove('highlighted'));
+        item.classList.add('highlighted');
+        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+
+  // 重力を消して位置固定
+  try {
+    graph.d3Force('charge', null);
+    graph.d3Force('link', null);
+    graph.d3Force('center', null);
+  } catch (e) { /* ignore */ }
+
+  // カメラ位置: 上から少し見下ろす
+  setTimeout(() => {
+    const midY = -calls.length * 15;
+    graph.cameraPosition({ x: 0, y: midY, z: Math.max(200, calls.length * 30) }, { x: 0, y: midY, z: 0 }, 800);
+  }, 300);
+
+  _trace3dGraph = graph;
+}
+
+function buildTraceLog(trace) {
+  const list = document.getElementById('traceLogList');
+  list.innerHTML = '';
+  trace.forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'trace-log-item ' + (t.event === 'call' ? 'call' : 'ret');
+    item.dataset.step = t.step;
+    const indent = '<span class="indent">' + '· '.repeat(t.depth) + '</span>';
+    if (t.event === 'call') {
+      const argsStr = Object.entries(t.args || {}).map(([k, v]) => k + '=' + v).join(', ');
+      item.innerHTML = '<div><span class="step">' + t.step + ' →</span> ' + indent
+        + '<span class="func">' + escapeHtml(t.func) + '</span>'
+        + '(<span class="args">' + escapeHtml(argsStr) + '</span>)'
+        + (t.return_value !== null && t.return_value !== undefined
+            ? ' ⇒ <span class="ret-val">' + escapeHtml(t.return_value) + '</span>' : '')
+        + '</div>';
+    } else {
+      item.innerHTML = '<div><span class="step">' + t.step + ' ←</span> ' + indent
+        + '<span class="func">return</span> '
+        + '<span class="ret-val">' + escapeHtml(t.value) + '</span>'
+        + ' <span style="color:#aaa">(' + escapeHtml(t.func) + ')</span>'
+        + '</div>';
+    }
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.trace-log-item.highlighted').forEach(e => e.classList.remove('highlighted'));
+      item.classList.add('highlighted');
+    });
+    list.appendChild(item);
+  });
 }
 
 // ========== 初期化 ==========

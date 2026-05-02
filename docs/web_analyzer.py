@@ -227,6 +227,107 @@ def analyze_json(code: str) -> str:
     return json.dumps(analyze_single_file(code), ensure_ascii=False, default=str)
 
 
+# ========== 実行トレース（縦長3D + 値遷移ログ用）==========
+
+def trace_execution(files: dict[str, str], expr: str) -> dict:
+    """ユーザー指定の式を実行し、関数呼び出しを引数・戻り値・順序付きで記録。
+
+    expr 例: "add(2, 3)" / "main()" / "TaskManager().add(Task(1, 'x', 3, '2030-01-01'))"
+    """
+    namespace, load_errors = _build_namespace(files)
+    user_funcs = _extract_user_funcs(files)
+
+    trace: list[dict] = []
+    step = [0]
+    depth = [0]
+    call_stack: list[dict] = []  # 対応する return で埋めるため
+
+    def _safe_repr(v) -> str:
+        try:
+            r = repr(v)
+            return r if len(r) <= 120 else r[:117] + "..."
+        except Exception:
+            return "<unprintable>"
+
+    def tracer(frame, event, arg):  # noqa: ARG001
+        name = frame.f_code.co_name
+        if name not in user_funcs:
+            return tracer
+        if event == "call":
+            step[0] += 1
+            args = {}
+            try:
+                # call イベント時点では f_locals は引数のみ（ローカル変数代入前）
+                arg_count = frame.f_code.co_argcount
+                arg_names = list(frame.f_code.co_varnames[:arg_count])
+                for k in arg_names:
+                    if k in frame.f_locals:
+                        args[k] = _safe_repr(frame.f_locals[k])
+            except Exception:
+                pass
+            entry = {
+                "step": step[0],
+                "event": "call",
+                "func": name,
+                "args": args,
+                "depth": depth[0],
+                "lineno": frame.f_lineno,
+                "return_value": None,
+                "return_step": None,
+            }
+            trace.append(entry)
+            call_stack.append(entry)
+            depth[0] += 1
+        elif event == "return":
+            depth[0] = max(0, depth[0] - 1)
+            ret_repr = _safe_repr(arg)
+            step[0] += 1
+            ret_entry = {
+                "step": step[0],
+                "event": "return",
+                "func": name,
+                "value": ret_repr,
+                "depth": depth[0],
+            }
+            trace.append(ret_entry)
+            # 対応する call を逆順で探して return_value/return_step を埋める
+            for i in range(len(call_stack) - 1, -1, -1):
+                if call_stack[i]["func"] == name:
+                    call_stack[i]["return_value"] = ret_repr
+                    call_stack[i]["return_step"] = step[0]
+                    call_stack.pop(i)
+                    break
+        return tracer
+
+    captured = io.StringIO()
+    expr_value = None
+    error_msg = None
+    try:
+        sys.settrace(tracer)
+        with redirect_stdout(captured):
+            # mode='single' だと REPL風（最後の式の repr が出力される）
+            code_obj = compile(expr, "<expr>", "single")
+            exec(code_obj, namespace)
+        # 念のため expr を eval しても結果取得試行
+        try:
+            expr_value = _safe_repr(eval(expr, namespace))
+        except Exception:
+            pass
+    except Exception as e:  # noqa: BLE001
+        error_msg = f"{type(e).__name__}: {e}"
+    finally:
+        sys.settrace(None)
+
+    return {
+        "trace": trace,
+        "stdout": captured.getvalue(),
+        "expr_value": expr_value,
+        "error": error_msg,
+        "load_errors": load_errors,
+        "user_funcs": sorted(user_funcs),
+    }
+
+
 def _classify_node_kinds(funcs: list, call_metrics: dict, func_scores: dict) -> dict:
     """各関数を hub / bridge / danger / isolated / normal に分類。
 
