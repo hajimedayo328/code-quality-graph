@@ -2542,13 +2542,7 @@ async function runLLMOverFunctions(taskKey, taskLabel, systemPrompt, filterFn) {
 function buildLLMPromptForNode(node, src) {
   const sections = [];
 
-  // ★ プロジェクト全体の目的（最優先・全関数判定の基盤）
-  const projectIntent = getProjectIntent();
-  if (projectIntent.trim()) {
-    sections.push(`【★プロジェクト全体の目的（最重要）】\n${projectIntent.trim()}\n→ この関数がこの目的に貢献しているか/反していないか必ず判定すること`);
-  }
-
-  sections.push(`\n関数: ${node.label} (${node.file}:${node.line})`);
+  sections.push(`関数: ${node.label} (${node.file}:${node.line})`);
   sections.push(`コード:\n\`\`\`python\n${src}\n\`\`\``);
 
   // 期待挙動: ユーザー意図メモ
@@ -2597,8 +2591,8 @@ function buildLLMPromptForNode(node, src) {
   sections.push(`\n【メトリクス】行数=${node.lines || 0}, 複雑度=${node.complexity || 0}, 認知=${node.cognitive || 0}, ネスト=${node.max_nest_depth || 0}, 引数=${node.n_args || 0}`);
 
   // 期待挙動が一切なければ、その旨を伝える
-  if (!intent && !doctestsBlock && failedTests.length === 0 && !projectIntent.trim()) {
-    sections.push(`\n【期待挙動】明示無し（プロジェクト目的・意図メモ・doctest 全部なし）。関数単体での断定は危険。verdict=SUSPICIOUS, reason に「プロジェクト目的 or 意図メモ追加を」と書く。BUG断定は避ける。`);
+  if (!intent && !doctestsBlock && failedTests.length === 0) {
+    sections.push(`\n【期待挙動】明示無し（意図メモ・doctest なし）。関数単体での断定は危険。verdict=SUSPICIOUS, reason に「意図メモ or doctest 追加を」と書く。BUG断定は避ける。`);
   }
 
   return sections.join('\n');
