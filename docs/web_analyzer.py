@@ -250,6 +250,10 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
             return "<unprintable>"
 
     def tracer(frame, event, arg):  # noqa: ARG001
+        # ユーザーファイル配下の関数のみトレース（contextlib 等の内部ライブラリ排除）
+        filename = frame.f_code.co_filename
+        if WORK_DIR not in filename:
+            return tracer
         name = frame.f_code.co_name
         if name not in user_funcs:
             return tracer

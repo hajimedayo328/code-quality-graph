@@ -964,15 +964,27 @@ ZeroDivisionError: division by zero"></textarea>
           意図と実装の食い違いを「どこで狂ったか」直感的に追える。すべてブラウザ内で実行（外部送信ゼロ）。
         </div>
         <div class="trace-input-wrap">
-          <label class="trace-label">実行する式（Pythonコード、関数呼び出しを書く）</label>
-          <input type="text" id="traceExprInput" class="trace-input"
-            placeholder="例: add(2, 3) / main() / TaskManager().add(Task(1, 'x', 3, '2030-01-01'))"
-            value="add(2, 3)">
-          <div class="trace-input-actions">
-            <button class="btn" type="button" onclick="loadTraceSample()">📝 解析中の関数から推測</button>
-            <button class="btn-primary" id="traceRunBtn" type="button" onclick="runTrace()">▶ 実行 ＆ トレース</button>
+          <label class="trace-label">① 解析済みコードから関数を選ぶ</label>
+          <select id="traceFuncSelect" class="trace-input" onchange="onTraceFuncChange()">
+            <option value="">— まず「コードを入力」セクションで「解析する」してください —</option>
+          </select>
+          <div id="traceArgsArea" style="margin-top:10px;display:none">
+            <label class="trace-label">② 引数を入力（必要に応じて）</label>
+            <div id="traceArgsFields"></div>
+            <div class="hint" style="font-size:11px;margin-top:4px">
+              数値・文字列・リスト等そのまま書く。例: <code>3</code>, <code>"hello"</code>, <code>[1,2,3]</code>
+            </div>
           </div>
-          <div class="hint" id="traceStatus" style="margin-top:6px">準備完了</div>
+          <details style="margin-top:8px">
+            <summary style="cursor:pointer;font-size:12px;color:#86868b">▸ 上級者: 直接Python式で書く（オプション）</summary>
+            <input type="text" id="traceExprInput" class="trace-input" style="margin-top:6px"
+              placeholder="例: add(2, 3) / TaskManager().add(Task(1, 'x', 3, '2030-01-01'))">
+            <div class="hint" style="font-size:10px;margin-top:4px">空欄なら上の「関数選択+引数」から自動生成、書けばこちらを優先</div>
+          </details>
+          <div class="trace-input-actions" style="margin-top:10px">
+            <button class="btn-primary" id="traceRunBtn" type="button" onclick="runTrace()">▶ 実行 ＆ グラフ可視化</button>
+          </div>
+          <div class="hint" id="traceStatus" style="margin-top:6px">準備完了（先に「解析する」を済ませてください）</div>
         </div>
         <div id="traceResultArea" class="trace-result" style="display:none">
           <div class="trace-meta" id="traceMeta"></div>
@@ -1445,6 +1457,8 @@ _result_json = json.dumps(_result_dict, ensure_ascii=False, default=str)
     showLoading(false);
     showResults(true);
     document.getElementById('statusText').textContent = `解析完了（${validFiles.length} ファイル）`;
+    // 実行トレースタブの関数選択 select を更新
+    if (typeof refreshTraceFunctionSelect === 'function') refreshTraceFunctionSelect();
   } catch (e) {
     showLoading(false);
     console.error(e);
@@ -2750,36 +2764,112 @@ function renderLLMSectionForNode(node) {
 
 let _traceData = null;
 let _trace3dGraph = null;
+let _traceArgNames = [];   // 現在選択中関数の引数名リスト
 
-function loadTraceSample() {
-  // 解析済み関数からエントリ候補を推測してプレースホルダ更新
+// 解析が走った後に呼ばれる：トレースタブの関数 select を埋める
+function refreshTraceFunctionSelect() {
+  const sel = document.getElementById('traceFuncSelect');
+  if (!sel) return;
   if (!currentResult || !(currentResult.nodes || []).length) {
-    alert('先に「コードを入力」セクションで解析してください');
+    sel.innerHTML = '<option value="">— まず「コードを入力」セクションで「解析する」してください —</option>';
+    document.getElementById('traceArgsArea').style.display = 'none';
     return;
   }
-  const nodes = currentResult.nodes;
-  // entry 関数優先 → 引数なし関数 → docstring 持ち関数
-  const entry = nodes.find(n => n.is_entry);
-  const noargs = nodes.find(n => (n.n_args || 0) === 0 && !n.is_dunder);
-  const docFn = nodes.find(n => n.docstring && (n.n_args || 0) <= 3 && !n.is_dunder);
-  const target = entry || noargs || docFn || nodes[0];
-  let suggestion;
-  if (!target) return;
-  if ((target.n_args || 0) === 0) {
-    suggestion = target.label + '()';
-  } else {
-    // 整数引数を推測してデフォ値入れる
-    const placeholders = [];
-    for (let i = 0; i < (target.n_args || 0); i++) placeholders.push(String(i + 1));
-    suggestion = target.label + '(' + placeholders.join(', ') + ')';
+  const nodes = currentResult.nodes.filter(n => !n.is_dunder);  // ダンダー除外
+  // 並び替え: entry → 引数なし関数 → 通常 → method（クラスインスタンス必要なので扱い注意）
+  nodes.sort((a, b) => {
+    const aRank = a.is_entry ? 0 : (a.n_args === 0 ? 1 : (a.func_type === 'method' ? 3 : 2));
+    const bRank = b.is_entry ? 0 : (b.n_args === 0 ? 1 : (b.func_type === 'method' ? 3 : 2));
+    return aRank - bRank;
+  });
+  const opts = ['<option value="">— 関数を選んで実行 —</option>'];
+  nodes.forEach(n => {
+    const tag = n.is_entry ? ' [entry]' : (n.func_type === 'method' ? ' [method]' : '');
+    opts.push(`<option value="${escapeAttr(n.id)}">${escapeHtml(n.label)} (${n.n_args || 0}args)${tag}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+  document.getElementById('traceArgsArea').style.display = 'none';
+  document.getElementById('traceStatus').textContent = '関数を選んでください（' + nodes.length + ' 個）';
+}
+
+// ノード ID から関数情報を取得 + 引数名抽出
+function _findNodeById(id) {
+  return (currentResult?.nodes || []).find(n => n.id === id);
+}
+
+// 関数選択時に引数フィールドを動的生成
+function onTraceFuncChange() {
+  const sel = document.getElementById('traceFuncSelect');
+  const id = sel.value;
+  const argsArea = document.getElementById('traceArgsArea');
+  const fieldsEl = document.getElementById('traceArgsFields');
+  if (!id) {
+    argsArea.style.display = 'none';
+    return;
   }
-  document.getElementById('traceExprInput').value = suggestion;
-  document.getElementById('traceStatus').textContent = '推測: ' + suggestion + '（必要に応じて編集してください）';
+  const node = _findNodeById(id);
+  if (!node) return;
+
+  // ソースから引数名を抽出（ファイル内の def シグネチャをパース）
+  const src = extractFunctionSource(node) || '';
+  const sigMatch = src.match(/def\s+\w+\s*\(([^)]*)\)/);
+  let argNames = [];
+  if (sigMatch) {
+    argNames = sigMatch[1].split(',').map(a => {
+      // 'self', 'cls' は除外、=デフォルト値や: 型ヒントは捨てる
+      const cleaned = a.split('=')[0].split(':')[0].trim().replace(/^\*+/, '');
+      return cleaned;
+    }).filter(a => a && a !== 'self' && a !== 'cls');
+  } else {
+    // フォールバック: n_args 個の placeholder
+    for (let i = 0; i < (node.n_args || 0); i++) argNames.push('arg' + (i + 1));
+  }
+  _traceArgNames = argNames;
+
+  if (argNames.length === 0) {
+    fieldsEl.innerHTML = '<div class="hint" style="font-size:12px;color:#86868b">引数なし、そのまま実行できます</div>';
+    argsArea.style.display = 'block';
+    return;
+  }
+  fieldsEl.innerHTML = argNames.map(name => `
+    <div style="display:flex;gap:8px;align-items:center;margin:4px 0">
+      <label style="min-width:120px;font-family:'SF Mono',Menlo,monospace;font-size:12px;color:#1d1d1f">${escapeHtml(name)}</label>
+      <input type="text" class="trace-arg-input" data-arg="${escapeAttr(name)}"
+        style="flex:1;padding:6px 10px;border:1px solid #d2d2d7;border-radius:6px;font-family:'SF Mono',Menlo,monospace;font-size:12px"
+        placeholder="Python式（例: 3, 'hello', [1,2,3]）">
+    </div>
+  `).join('');
+  argsArea.style.display = 'block';
+
+  // method 系は self が要るので警告
+  if (node.func_type === 'method') {
+    fieldsEl.insertAdjacentHTML('beforebegin',
+      '<div class="hint" style="font-size:11px;color:#ff9500;margin-bottom:6px">⚠ method はクラスインスタンス経由で呼ぶ必要あり。下の「上級者: 直接Python式」で <code>MyClass().' + escapeHtml(node.label) + '(...)</code> 形式を推奨</div>'
+    );
+  }
+}
+
+function _buildExprFromUI() {
+  // 上級者欄に直書きあればそれ優先
+  const direct = (document.getElementById('traceExprInput')?.value || '').trim();
+  if (direct) return direct;
+  const sel = document.getElementById('traceFuncSelect');
+  const id = sel.value;
+  if (!id) return '';
+  const node = _findNodeById(id);
+  if (!node) return '';
+  const argInputs = document.querySelectorAll('.trace-arg-input');
+  const args = Array.from(argInputs).map(i => (i.value || '').trim()).filter(v => v !== '');
+  return node.label + '(' + args.join(', ') + ')';
 }
 
 async function runTrace() {
-  const expr = (document.getElementById('traceExprInput').value || '').trim();
-  if (!expr) { alert('実行する式を入力してください'); return; }
+  const expr = _buildExprFromUI();
+  if (!expr) {
+    alert('関数を選んで引数を入力するか、上級者欄に式を直書きしてください');
+    return;
+  }
+  document.getElementById('traceStatus').textContent = '実行式: ' + expr;
 
   syncFileListFromDOM();
   const validFiles = fileList.filter(f => f.code && f.code.trim().length > 0);
