@@ -2297,20 +2297,22 @@ function setLLMTaskCardsEnabled(enabled) {
   });
 }
 
-// プロジェクト全体の意図メモ（localStorage 永続）
-const PROJECT_INTENT_KEY = 'cqg_project_intent_v1';
-function getProjectIntent() {
-  try { return localStorage.getItem(PROJECT_INTENT_KEY) || ''; } catch (e) { return ''; }
+// 関数ごとの「意図メモ」（Inspector パネルで編集、localStorage 永続）
+const INTENT_KEY = 'cqg_intents_v1';
+function getIntent(nodeId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(INTENT_KEY) || '{}');
+    return all[nodeId] || '';
+  } catch (e) { return ''; }
 }
-function onProjectIntentInput(el) {
-  try { localStorage.setItem(PROJECT_INTENT_KEY, el.value); } catch (e) { /* ignore */ }
+function setIntent(nodeId, text) {
+  try {
+    const all = JSON.parse(localStorage.getItem(INTENT_KEY) || '{}');
+    if (text && text.trim()) all[nodeId] = text.trim();
+    else delete all[nodeId];
+    localStorage.setItem(INTENT_KEY, JSON.stringify(all));
+  } catch (e) { /* ignore */ }
 }
-
-// 起動時に保存値を復元
-document.addEventListener('DOMContentLoaded', () => {
-  const el = document.getElementById('projectIntent');
-  if (el) el.value = getProjectIntent();
-});
 
 async function initLLM(modelId) {
   setLLMUiState('loading', 'モジュール読込');
