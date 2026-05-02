@@ -2951,7 +2951,9 @@ function renderTraceResult(result) {
     '<span>戻り: <b>' + returns.length + '</b></span>' +
     (result.expr_value !== null && result.expr_value !== undefined
       ? '<span>結果: <b>' + escapeHtml(result.expr_value) + '</b></span>' : '') +
-    (result.error ? '<div class="err">⚠ エラー: ' + escapeHtml(result.error) + '</div>' : '');
+    (result.error
+      ? '<div class="err" style="white-space:pre-wrap">⚠ エラー: ' + escapeHtml(result.error) + '</div>'
+      : '');
 
   // stdout
   const stdoutEl = document.getElementById('traceStdout');

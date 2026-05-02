@@ -317,6 +317,17 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
             expr_value = _safe_repr(eval(expr, namespace))
         except Exception:
             pass
+    except RuntimeError as e:
+        msg = str(e)
+        if "asyncio.run" in msg or "event loop" in msg or "running event loop" in msg:
+            error_msg = (
+                "asyncio.run() は Pyodide のブラウザ環境ではトレース実行できません。\n"
+                "→ 「別の関数で実行」から asyncio を使わない関数を選んでください。\n"
+                "（例: add / multiply / TaskManager().add(...) 等）\n"
+                "もしくはコード側で asyncio.run(...) 行を削るかコメントアウトしてください。"
+            )
+        else:
+            error_msg = f"{type(e).__name__}: {e}"
     except Exception as e:  # noqa: BLE001
         error_msg = f"{type(e).__name__}: {e}"
     finally:
