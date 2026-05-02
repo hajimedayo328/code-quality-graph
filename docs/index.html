@@ -964,27 +964,27 @@ ZeroDivisionError: division by zero"></textarea>
           意図と実装の食い違いを「どこで狂ったか」直感的に追える。すべてブラウザ内で実行（外部送信ゼロ）。
         </div>
         <div class="trace-input-wrap">
-          <label class="trace-label">① 解析済みコードから関数を選ぶ</label>
-          <select id="traceFuncSelect" class="trace-input" onchange="onTraceFuncChange()">
-            <option value="">— まず「コードを入力」セクションで「解析する」してください —</option>
-          </select>
-          <div id="traceArgsArea" style="margin-top:10px;display:none">
-            <label class="trace-label">② 引数を入力（必要に応じて）</label>
-            <div id="traceArgsFields"></div>
-            <div class="hint" style="font-size:11px;margin-top:4px">
-              数値・文字列・リスト等そのまま書く。例: <code>3</code>, <code>"hello"</code>, <code>[1,2,3]</code>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn-primary" id="traceRunBtn" type="button" onclick="runTrace()" style="font-size:14px;padding:10px 24px">▶ 実行</button>
+            <span class="hint" id="traceTargetLabel" style="font-size:13px"></span>
+          </div>
+          <details id="traceAdvanced" style="margin-top:12px">
+            <summary style="cursor:pointer;font-size:13px;color:#1d1d1f;font-weight:600">▸ 別の関数で実行（オプション）</summary>
+            <div style="margin-top:10px;padding:10px 12px;background:#fff;border:1px solid #e5e5e5;border-radius:8px">
+              <label class="trace-label">関数を選ぶ</label>
+              <select id="traceFuncSelect" class="trace-input" onchange="onTraceFuncChange()">
+                <option value="">— まず「解析する」を済ませてください —</option>
+              </select>
+              <div id="traceArgsArea" style="margin-top:10px;display:none">
+                <label class="trace-label">引数（適当な値でOK）</label>
+                <div id="traceArgsFields"></div>
+                <div class="hint" style="font-size:11px;margin-top:4px">
+                  Python式そのまま書く。例: <code>3</code>, <code>"hello"</code>, <code>[1,2,3]</code>
+                </div>
+              </div>
             </div>
-          </div>
-          <details style="margin-top:8px">
-            <summary style="cursor:pointer;font-size:12px;color:#86868b">▸ 上級者: 直接Python式で書く（オプション）</summary>
-            <input type="text" id="traceExprInput" class="trace-input" style="margin-top:6px"
-              placeholder="例: add(2, 3) / TaskManager().add(Task(1, 'x', 3, '2030-01-01'))">
-            <div class="hint" style="font-size:10px;margin-top:4px">空欄なら上の「関数選択+引数」から自動生成、書けばこちらを優先</div>
           </details>
-          <div class="trace-input-actions" style="margin-top:10px">
-            <button class="btn-primary" id="traceRunBtn" type="button" onclick="runTrace()">▶ 実行 ＆ グラフ可視化</button>
-          </div>
-          <div class="hint" id="traceStatus" style="margin-top:6px">準備完了（先に「解析する」を済ませてください）</div>
+          <div class="hint" id="traceStatus" style="margin-top:8px">先に「解析する」を済ませてください</div>
         </div>
         <div id="traceResultArea" class="trace-result" style="display:none">
           <div class="trace-meta" id="traceMeta"></div>
@@ -2789,7 +2789,8 @@ function refreshTraceFunctionSelect() {
   });
   sel.innerHTML = opts.join('');
   document.getElementById('traceArgsArea').style.display = 'none';
-  document.getElementById('traceStatus').textContent = '関数を選んでください（' + nodes.length + ' 個）';
+  document.getElementById('traceStatus').textContent = '準備完了';
+  _updateTraceTargetLabel();
 }
 
 // ノード ID から関数情報を取得 + 引数名抽出
@@ -2844,23 +2845,46 @@ function onTraceFuncChange() {
   // method 系は self が要るので警告
   if (node.func_type === 'method') {
     fieldsEl.insertAdjacentHTML('beforebegin',
-      '<div class="hint" style="font-size:11px;color:#ff9500;margin-bottom:6px">⚠ method はクラスインスタンス経由で呼ぶ必要あり。下の「上級者: 直接Python式」で <code>MyClass().' + escapeHtml(node.label) + '(...)</code> 形式を推奨</div>'
+      '<div class="hint" style="font-size:11px;color:#ff9500;margin-bottom:6px">⚠ method はクラスインスタンス経由で呼ぶ必要あり。<code>MyClass().' + escapeHtml(node.label) + '(...)</code> 形式が必要なため現状この方法では実行不可、main() 経由を推奨</div>'
     );
   }
+  _updateTraceTargetLabel();
 }
 
 function _buildExprFromUI() {
-  // 上級者欄に直書きあればそれ優先
-  const direct = (document.getElementById('traceExprInput')?.value || '').trim();
-  if (direct) return direct;
+  // 別関数 dropdown で選択がある場合はそれ優先
   const sel = document.getElementById('traceFuncSelect');
-  const id = sel.value;
-  if (!id) return '';
-  const node = _findNodeById(id);
-  if (!node) return '';
-  const argInputs = document.querySelectorAll('.trace-arg-input');
-  const args = Array.from(argInputs).map(i => (i.value || '').trim()).filter(v => v !== '');
-  return node.label + '(' + args.join(', ') + ')';
+  if (sel && sel.value) {
+    const node = _findNodeById(sel.value);
+    if (node) {
+      const argInputs = document.querySelectorAll('.trace-arg-input');
+      const args = Array.from(argInputs).map(i => (i.value || '').trim()).filter(v => v !== '');
+      return node.label + '(' + args.join(', ') + ')';
+    }
+  }
+  // 何も選んでなければ main() を自動実行
+  return 'main()';
+}
+
+// 解析後にターゲット表示更新（main 自動 or 引数なし関数）
+function _updateTraceTargetLabel() {
+  const labelEl = document.getElementById('traceTargetLabel');
+  if (!labelEl) return;
+  const sel = document.getElementById('traceFuncSelect');
+  if (sel && sel.value) {
+    const node = _findNodeById(sel.value);
+    if (node) {
+      labelEl.textContent = '対象: ' + node.label + '() （上の引数フィールドを使う）';
+      return;
+    }
+  }
+  // main 検出
+  const hasMain = (currentResult?.nodes || []).some(n => n.label === 'main' && (n.n_args || 0) === 0);
+  if (hasMain) {
+    labelEl.innerHTML = '対象: <code>main()</code> を自動実行';
+  } else {
+    labelEl.innerHTML = '<span style="color:#ff9500">⚠ main() が無い → 下の「別の関数で実行」を開いて選択してください</span>';
+  }
 }
 
 async function runTrace() {
@@ -2954,6 +2978,7 @@ function buildTrace3D(calls) {
   }
 
   // ノード位置: y=-step*30 (縦に並ぶ)、x=depth*60 (ネスト深いほど右)
+  // 全ノードを最初は val=0.001 で「非表示」にして、setTimeout で順次出現
   const nodes = calls.map((c, i) => {
     // 色: ステップ進行で青→紫→赤
     const t = calls.length > 1 ? i / (calls.length - 1) : 0;
@@ -2973,7 +2998,8 @@ function buildTrace3D(calls) {
       fy: -i * 30,
       fz: 0,
       color: 'rgb(' + r + ',' + g + ',' + b + ')',
-      val: 6,
+      _targetVal: 8,
+      val: 0.001,  // 初期非表示
     };
   });
 
@@ -3030,6 +3056,25 @@ function buildTrace3D(calls) {
   }, 300);
 
   _trace3dGraph = graph;
+
+  // ===== ★順次出現アニメーション =====
+  // step 順にノードを 1個ずつ表示（フェードイン）
+  // 同時に右ログのカードもハイライトしてスクロール
+  const stepIntervalMs = Math.max(180, Math.min(800, 4000 / calls.length));
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    setTimeout(() => {
+      n.val = n._targetVal;
+      try { graph.refresh(); } catch (e) {}
+      // 対応するログ行をハイライトして右パネルをスクロール
+      const li = document.querySelector('#traceLogList [data-step="' + n.step + '"]');
+      if (li) {
+        document.querySelectorAll('.trace-log-item.highlighted').forEach(e => e.classList.remove('highlighted'));
+        li.classList.add('highlighted');
+        li.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, i * stepIntervalMs);
+  }
 }
 
 function buildTraceLog(trace) {
