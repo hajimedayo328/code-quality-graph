@@ -231,23 +231,53 @@ def analyze_json(code: str) -> str:
 # ========== 実行トレース（縦長3D + 値遷移ログ用）==========
 
 def _detect_gui_libraries(files: dict[str, str]) -> dict:
-    """ユーザーコードで使われているGUI/描画系ライブラリを検出。
+    """ユーザーコードで使われているランタイム機能を検出。
 
-    matplotlib → ブラウザで動く（画像キャプチャ可能）
-    tkinter/pygame/PIL.show/turtle → ブラウザで動かない（事前に警告）
+    動く:
+      matplotlib → 画像キャプチャ可能
+      input() → stdin 入力欄で値を流せる
+      open() → 仮想ファイルシステムで読み書き
+      sys.argv → 引数欄で指定可能
+      random → seed 固定オプション
+    動かない:
+      tkinter / pygame / turtle / PIL.show / requests / urllib / threading / subprocess / socket
     """
-    detected = {"matplotlib": False, "blocked": []}
+    detected = {
+        "matplotlib": False,
+        "uses_input": False,
+        "uses_open": False,
+        "uses_argv": False,
+        "uses_random": False,
+        "blocked": [],
+    }
     blocked_patterns = [
         ("tkinter", r"\bimport\s+tkinter|\bfrom\s+tkinter\b|\bimport\s+Tkinter\b"),
         ("pygame", r"\bimport\s+pygame\b|\bfrom\s+pygame\b"),
         ("turtle", r"\bimport\s+turtle\b|\bfrom\s+turtle\b"),
         ("PIL.Image.show", r"\.show\(\s*\).*#.*PIL|Image\.open.*\.show\(\)"),
-        ("input()", r"\binput\s*\("),
+        ("requests", r"\bimport\s+requests\b|\bfrom\s+requests\b"),
+        ("urllib", r"\bimport\s+urllib\b|\bfrom\s+urllib\b"),
+        ("threading", r"\bimport\s+threading\b|\bfrom\s+threading\b"),
+        ("multiprocessing", r"\bimport\s+multiprocessing\b|\bfrom\s+multiprocessing\b"),
+        ("subprocess", r"\bimport\s+subprocess\b|\bfrom\s+subprocess\b"),
+        ("socket", r"\bimport\s+socket\b|\bfrom\s+socket\b"),
     ]
     mpl_pat = re.compile(r"\bimport\s+matplotlib\b|\bfrom\s+matplotlib\b|\bmatplotlib\.pyplot\b|\bimport\s+pyplot\b")
+    input_pat = re.compile(r"\binput\s*\(")
+    open_pat = re.compile(r"\bopen\s*\(")
+    argv_pat = re.compile(r"\bsys\.argv\b|\bargparse\b")
+    random_pat = re.compile(r"\bimport\s+random\b|\bfrom\s+random\b|\brandom\.")
     for code in files.values():
         if mpl_pat.search(code):
             detected["matplotlib"] = True
+        if input_pat.search(code):
+            detected["uses_input"] = True
+        if open_pat.search(code):
+            detected["uses_open"] = True
+        if argv_pat.search(code):
+            detected["uses_argv"] = True
+        if random_pat.search(code):
+            detected["uses_random"] = True
         for name, pat in blocked_patterns:
             if re.search(pat, code) and name not in detected["blocked"]:
                 detected["blocked"].append(name)
@@ -295,10 +325,21 @@ def _capture_matplotlib_figures() -> list[dict]:
     return images
 
 
-def trace_execution(files: dict[str, str], expr: str) -> dict:
+def trace_execution(
+    files: dict[str, str],
+    expr: str,
+    stdin_lines: list | None = None,
+    virtual_files: dict | None = None,
+    argv: list | None = None,
+    random_seed: int | None = None,
+) -> dict:
     """ユーザー指定の式を実行し、関数呼び出しを引数・戻り値・順序付きで記録。
 
     expr 例: "add(2, 3)" / "main()" / "TaskManager().add(Task(1, 'x', 3, '2030-01-01'))"
+    stdin_lines: input() に流す値のリスト。順番に消費され、不足するとEOFErrorに親切メッセージを添える。
+    virtual_files: {filename: content} のdict。open()でこの辞書から読み書きする（実FS非依存）。
+    argv: sys.argv に注入する文字列リスト。argv[0] は自動で "<trace>" になる。
+    random_seed: int を渡すと random.seed(int) で再現性確保。
     """
     # GUI系ライブラリ検出（matplotlib/tkinter/pygame等の事前警告用）
     gui_info = _detect_gui_libraries(files)
@@ -311,8 +352,135 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
         except ImportError:
             pass
 
+    # input() 差し替え用バッファ（list なら無限イテレーション安全に取り出す）
+    stdin_buf = list(stdin_lines) if stdin_lines else []
+    stdin_consumed: list[dict] = []  # {prompt, value} の履歴
+
     namespace, load_errors = _build_namespace(files)
     user_funcs = _extract_user_funcs(files)
+
+    # input() を差し替える（namespace と builtins 両方に注入）
+    import builtins as _builtins
+    _orig_input = _builtins.input
+    _stdin_idx = [0]
+
+    def _patched_input(prompt=""):
+        # プロンプトは stdout に出す（本物の input() の挙動）
+        if prompt:
+            try:
+                print(prompt, end="")
+            except Exception:  # noqa: BLE001
+                pass
+        idx = _stdin_idx[0]
+        if idx < len(stdin_buf):
+            val = str(stdin_buf[idx])
+            _stdin_idx[0] = idx + 1
+            stdin_consumed.append({"prompt": str(prompt), "value": val})
+            # echo して stdin 値が見えるように
+            try:
+                print(val)
+            except Exception:  # noqa: BLE001
+                pass
+            return val
+        # 値が足りない → 親切エラー
+        raise EOFError(
+            f"input() が呼ばれましたが stdin 値が不足しています "
+            f"(入力済み {len(stdin_consumed)} 行、追加で {idx + 1} 行目が必要)。"
+            f"\nUI の「stdin に流す値」欄に追加してください。"
+        )
+
+    _builtins.input = _patched_input
+    namespace["input"] = _patched_input
+
+    # ===== open() 仮想ファイルシステム =====
+    vfiles: dict = dict(virtual_files) if virtual_files else {}
+    vfiles_io: dict = {}  # 書き込み内容を蓄積するバッファ
+    _orig_open = _builtins.open
+
+    def _patched_open(file, mode="r", *args, **kwargs):  # noqa: ARG001
+        # ファイル名を文字列化（PathLike対応）
+        try:
+            fname = os.fspath(file) if hasattr(os, "fspath") else str(file)
+        except Exception:  # noqa: BLE001
+            fname = str(file)
+        # WORK_DIR 配下の解析対象ファイルは実FS、それ以外は仮想FSにフォールバック
+        # （analyze_multiple_files 後の解析結果ファイルを読みたいケースは稀なので仮想FS優先）
+        is_binary = "b" in mode
+        is_write = any(c in mode for c in ("w", "a", "x"))
+        if is_write:
+            # 書き込み: 仮想FSのバッファに溜める
+            buf = io.BytesIO() if is_binary else io.StringIO()
+            # close 時に vfiles_io に保存するラッパーを作る
+            class _CapturedFile:
+                def __init__(self, b, fname, append=False):
+                    self._buf = b
+                    self._fname = fname
+                    self._append = append
+                    self._closed = False
+                def write(self, data):
+                    return self._buf.write(data)
+                def writelines(self, lines):
+                    for ln in lines:
+                        self._buf.write(ln)
+                def read(self, *a):
+                    return ""
+                def __enter__(self):
+                    return self
+                def __exit__(self, *exc):
+                    self.close()
+                    return False
+                def __iter__(self):
+                    return iter([])
+                def close(self):
+                    if self._closed:
+                        return
+                    self._closed = True
+                    val = self._buf.getvalue()
+                    if self._append and self._fname in vfiles:
+                        prev = vfiles[self._fname]
+                        if isinstance(prev, str) and isinstance(val, str):
+                            val = prev + val
+                        elif isinstance(prev, bytes) and isinstance(val, bytes):
+                            val = prev + val
+                    vfiles[self._fname] = val
+                    vfiles_io[self._fname] = val
+                def flush(self):
+                    pass
+            return _CapturedFile(buf, fname, append=("a" in mode))
+        # 読み取り
+        if fname in vfiles:
+            content = vfiles[fname]
+            if is_binary:
+                if isinstance(content, str):
+                    content = content.encode("utf-8")
+                return io.BytesIO(content)
+            if isinstance(content, bytes):
+                content = content.decode("utf-8", errors="replace")
+            return io.StringIO(content)
+        # 仮想FS にないファイル → 親切エラー
+        raise FileNotFoundError(
+            f"open('{fname}') が呼ばれましたが、その名前の仮想ファイルがありません。\n"
+            f"UI の「仮想ファイル」欄に <ファイル名>=<内容> 形式で追加してください。\n"
+            f"（現在の仮想ファイル: {list(vfiles.keys())}）"
+        )
+
+    _builtins.open = _patched_open
+    namespace["open"] = _patched_open
+
+    # ===== sys.argv 注入 =====
+    _orig_argv = sys.argv[:]
+    if argv is not None:
+        sys.argv = ["<trace>"] + [str(a) for a in argv]
+    else:
+        sys.argv = ["<trace>"]
+
+    # ===== random.seed 固定（再現性） =====
+    if random_seed is not None:
+        try:
+            import random as _random
+            _random.seed(int(random_seed))
+        except Exception:  # noqa: BLE001
+            pass
 
     # 暴走防止の上限値
     MAX_STEPS = 2000          # トレース総ステップ数（call+return合計）
@@ -426,6 +594,19 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
         error_msg = f"{type(e).__name__}: {e}"
     finally:
         sys.settrace(None)
+        # 差し替え物は必ず元に戻す（リークすると次回セッションを汚染）
+        try:
+            _builtins.input = _orig_input
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            _builtins.open = _orig_open
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            sys.argv = _orig_argv
+        except Exception:  # noqa: BLE001
+            pass
 
     # stdout 上限（巨大出力防止）
     stdout_text = captured.getvalue()
@@ -449,6 +630,18 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
         "limits": {"max_steps": MAX_STEPS, "max_depth": MAX_DEPTH, "max_stdout": MAX_STDOUT},
         "images": images,
         "gui_info": gui_info,
+        "stdin_consumed": stdin_consumed,
+        "stdin_provided": len(stdin_buf),
+        "files_written": [
+            {
+                "name": k,
+                "size": len(v) if isinstance(v, (str, bytes)) else 0,
+                "preview": (v[:500] + "...") if isinstance(v, str) and len(v) > 500
+                           else (v.decode("utf-8", errors="replace")[:500] + "...") if isinstance(v, bytes) and len(v) > 500
+                           else (v if isinstance(v, str) else v.decode("utf-8", errors="replace") if isinstance(v, bytes) else str(v)),
+            }
+            for k, v in vfiles_io.items()
+        ],
     }
 
 

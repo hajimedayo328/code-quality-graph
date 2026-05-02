@@ -1008,6 +1008,59 @@ ZeroDivisionError: division by zero"></textarea>
               </div>
             </div>
           </details>
+          <details id="traceRuntimeDetails" style="margin-top:12px">
+            <summary style="cursor:pointer;font-size:13px;color:#1d1d1f;font-weight:600">
+              ▸ <span id="traceRuntimeSummaryLabel">ランタイム設定（input / 仮想ファイル / sys.argv / random.seed）</span>
+            </summary>
+            <div style="margin-top:10px;padding:10px 12px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;display:flex;flex-direction:column;gap:14px">
+
+              <div data-runtime-section="input">
+                <label class="trace-label">📥 stdin（input() に流す値）</label>
+                <div class="hint" style="font-size:11px;margin-bottom:4px">1行 = input() 1回分。例: <code>Alice⏎20</code></div>
+                <textarea id="traceStdinInput"
+                  placeholder="Alice&#10;20"
+                  style="width:100%;min-height:60px;font-family:'SF Mono',Menlo,monospace;font-size:12px;padding:8px;border:1px solid #d0d0d0;border-radius:6px"></textarea>
+              </div>
+
+              <div data-runtime-section="files">
+                <label class="trace-label">📁 仮想ファイル（open() で読み書きする内容）</label>
+                <div class="hint" style="font-size:11px;margin-bottom:4px">
+                  <code>=== ファイル名 ===</code> 行で区切る。例:<br>
+                  <code>=== config.txt ===<br>mode=test<br>=== data.csv ===<br>a,b,c</code>
+                </div>
+                <textarea id="traceFilesInput"
+                  placeholder="=== config.txt ===&#10;mode=test"
+                  style="width:100%;min-height:80px;font-family:'SF Mono',Menlo,monospace;font-size:12px;padding:8px;border:1px solid #d0d0d0;border-radius:6px"></textarea>
+                <div class="hint" style="font-size:11px;margin-top:4px;color:#86868b">
+                  書き込み（<code>open(..., "w")</code>）の内容は実行後に下に表示されます。
+                </div>
+              </div>
+
+              <div data-runtime-section="argv">
+                <label class="trace-label">⌨ コマンドライン引数（sys.argv）</label>
+                <div class="hint" style="font-size:11px;margin-bottom:4px">
+                  スペース区切りで指定。<code>argv[0]</code> は自動で <code>&lt;trace&gt;</code>。例: <code>--debug -v file.txt</code>
+                </div>
+                <input type="text" id="traceArgvInput"
+                  placeholder="--debug -v"
+                  style="width:100%;font-family:'SF Mono',Menlo,monospace;font-size:12px;padding:8px;border:1px solid #d0d0d0;border-radius:6px">
+              </div>
+
+              <div data-runtime-section="random">
+                <label class="trace-label">🎲 random.seed（再現性のため）</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <label style="font-size:12px;display:flex;align-items:center;gap:4px">
+                    <input type="checkbox" id="traceSeedEnable">
+                    seed を固定する
+                  </label>
+                  <input type="number" id="traceSeedInput" value="42"
+                    style="width:100px;font-family:'SF Mono',Menlo,monospace;font-size:12px;padding:6px;border:1px solid #d0d0d0;border-radius:6px">
+                  <span class="hint" style="font-size:11px">同じ値で何度実行しても同じ random 結果になります</span>
+                </div>
+              </div>
+
+            </div>
+          </details>
           <div class="hint" id="traceStatus" style="margin-top:8px">先に「解析する」を済ませてください</div>
         </div>
         <div id="traceResultArea" class="trace-result" style="display:none">
@@ -1028,6 +1081,8 @@ ZeroDivisionError: division by zero"></textarea>
           </div>
           <div id="traceStdout" class="trace-stdout" style="display:none"></div>
           <div id="traceImages" class="trace-images" style="display:none"></div>
+          <div id="traceFilesWritten" class="trace-images" style="display:none"></div>
+          <div id="traceStdinHistory" class="trace-images" style="display:none"></div>
           <div id="traceGuiWarn" class="trace-gui-warn" style="display:none"></div>
         </div>
       </div>
@@ -2838,6 +2893,45 @@ function refreshTraceFunctionSelect() {
   document.getElementById('traceArgsArea').style.display = 'none';
   document.getElementById('traceStatus').textContent = '準備完了';
   _updateTraceTargetLabel();
+  _updateRuntimeDetailsHints();
+}
+
+// ユーザーコードから input/open/argv/random の使用を検出して
+// 「ランタイム設定」details を自動展開＋ラベル更新する
+function _updateRuntimeDetailsHints() {
+  try {
+    const allCode = (fileList || []).map(f => f.code || '').join('\n');
+    const usesInput = /\binput\s*\(/.test(allCode);
+    const usesOpen = /\bopen\s*\(/.test(allCode);
+    const usesArgv = /\bsys\.argv\b|\bargparse\b/.test(allCode);
+    const usesRandom = /\brandom\./.test(allCode);
+    const detected = [];
+    if (usesInput) detected.push('input');
+    if (usesOpen) detected.push('open');
+    if (usesArgv) detected.push('sys.argv');
+    if (usesRandom) detected.push('random');
+    const labelEl = document.getElementById('traceRuntimeSummaryLabel');
+    const details = document.getElementById('traceRuntimeDetails');
+    if (!labelEl || !details) return;
+    if (detected.length > 0) {
+      labelEl.innerHTML = '🔧 ランタイム設定（<b style="color:#ff9500">' + detected.join(', ') + ' を検出</b>、設定推奨）';
+      details.open = true;
+    } else {
+      labelEl.innerHTML = 'ランタイム設定（input / 仮想ファイル / sys.argv / random.seed）';
+      details.open = false;
+    }
+    // 各セクションを使用中のものだけ強調
+    const sections = details.querySelectorAll('[data-runtime-section]');
+    sections.forEach(s => {
+      const k = s.getAttribute('data-runtime-section');
+      const used = (k === 'input' && usesInput) || (k === 'files' && usesOpen) ||
+                   (k === 'argv' && usesArgv) || (k === 'random' && usesRandom);
+      s.style.opacity = used ? '1' : '0.5';
+    });
+  } catch (e) {
+    // 失敗しても致命ではないので無視
+    console.warn('runtime details update failed:', e);
+  }
 }
 
 // ノード ID から関数情報を取得 + 引数名抽出
@@ -2981,11 +3075,50 @@ async function runTrace() {
       }
     }
 
+    // ===== ランタイム設定を収集 =====
+    // stdin: 1行 = 1値（末尾の空行は除去せず保持）
+    const stdinRaw = (document.getElementById('traceStdinInput')?.value || '');
+    const stdinLines = stdinRaw === '' ? [] : stdinRaw.split(/\r?\n/);
+    // 末尾が完全に空文字の場合だけ取り除く（trailing newline 1個分）
+    if (stdinLines.length > 0 && stdinLines[stdinLines.length - 1] === '') stdinLines.pop();
+
+    // 仮想ファイル: "=== name ===" で区切られたブロックをパース
+    const filesRaw = (document.getElementById('traceFilesInput')?.value || '').trim();
+    const virtualFiles = {};
+    if (filesRaw) {
+      const parts = filesRaw.split(/^===\s*([^=]+?)\s*===\s*$/m);
+      // parts = ["", name1, body1, name2, body2, ...]
+      for (let i = 1; i < parts.length; i += 2) {
+        const fname = (parts[i] || '').trim();
+        const body = (parts[i + 1] || '').replace(/^\n/, '').replace(/\n$/, '');
+        if (fname) virtualFiles[fname] = body;
+      }
+    }
+
+    // sys.argv: スペース区切り（クォート対応はせず単純split）
+    const argvRaw = (document.getElementById('traceArgvInput')?.value || '').trim();
+    const argvList = argvRaw ? argvRaw.split(/\s+/) : null;
+
+    // random.seed: チェックボックス有効時のみ
+    const seedEnabled = document.getElementById('traceSeedEnable')?.checked;
+    const seedVal = seedEnabled ? parseInt(document.getElementById('traceSeedInput')?.value || '42', 10) : null;
+
     pyodide.globals.set('trace_files_input', pyodide.toPy(filesDict));
     pyodide.globals.set('trace_expr_input', expr);
+    pyodide.globals.set('trace_stdin_lines', pyodide.toPy(stdinLines));
+    pyodide.globals.set('trace_virtual_files', pyodide.toPy(virtualFiles));
+    pyodide.globals.set('trace_argv_input', argvList ? pyodide.toPy(argvList) : null);
+    pyodide.globals.set('trace_seed_input', (seedVal !== null && !isNaN(seedVal)) ? seedVal : null);
     await pyodide.runPythonAsync(`
 import json
-_trace_result = trace_execution(dict(trace_files_input), trace_expr_input)
+_trace_result = trace_execution(
+    dict(trace_files_input),
+    trace_expr_input,
+    stdin_lines=list(trace_stdin_lines) if trace_stdin_lines else None,
+    virtual_files=dict(trace_virtual_files) if trace_virtual_files else None,
+    argv=list(trace_argv_input) if trace_argv_input else None,
+    random_seed=trace_seed_input,
+)
 _trace_result_json = json.dumps(_trace_result, ensure_ascii=False, default=str)
     `);
     const result = JSON.parse(pyodide.globals.get('_trace_result_json'));
@@ -3053,6 +3186,49 @@ function renderTraceResult(result) {
     imgEl.style.display = 'none';
   }
 
+  // 仮想ファイル: 書き込み内容を表示
+  const fwEl = document.getElementById('traceFilesWritten');
+  const filesWritten = result.files_written || [];
+  if (filesWritten.length > 0) {
+    fwEl.style.display = 'block';
+    let html = '<div class="trace-images-header">📝 書き込まれた仮想ファイル（' + filesWritten.length + ' 個）</div>';
+    for (const f of filesWritten) {
+      html += '<div style="margin-top:8px;border:1px solid #e5e5e5;border-radius:6px;padding:8px;background:#fafafa">' +
+        '<div style="font-family:Menlo,monospace;font-size:12px;color:#1d1d1f;font-weight:600">' +
+        escapeHtml(f.name) + ' <span style="color:#86868b;font-weight:400">(' + f.size + ' bytes)</span></div>' +
+        '<pre style="margin:6px 0 0 0;font-family:Menlo,monospace;font-size:11px;color:#333;white-space:pre-wrap;background:#fff;padding:6px;border-radius:4px;border:1px solid #eee;max-height:200px;overflow:auto">' +
+        escapeHtml(f.preview) + '</pre>' +
+        '</div>';
+    }
+    fwEl.innerHTML = html;
+  } else {
+    fwEl.style.display = 'none';
+  }
+
+  // stdin 消費履歴
+  const sinEl = document.getElementById('traceStdinHistory');
+  const stdinConsumed = result.stdin_consumed || [];
+  if (stdinConsumed.length > 0) {
+    sinEl.style.display = 'block';
+    const provided = result.stdin_provided || 0;
+    let html = '<div class="trace-images-header">📥 input() 消費履歴（' + stdinConsumed.length + '/' + provided + ' 行使用）</div>';
+    html += '<table style="width:100%;font-family:Menlo,monospace;font-size:12px;border-collapse:collapse">' +
+      '<thead><tr style="background:#f5f5f7"><th style="text-align:left;padding:6px;border-bottom:1px solid #e5e5e5">#</th>' +
+      '<th style="text-align:left;padding:6px;border-bottom:1px solid #e5e5e5">prompt</th>' +
+      '<th style="text-align:left;padding:6px;border-bottom:1px solid #e5e5e5">value</th></tr></thead><tbody>';
+    stdinConsumed.forEach((row, i) => {
+      html += '<tr style="border-bottom:1px solid #f0f0f0">' +
+        '<td style="padding:6px;color:#86868b">' + (i+1) + '</td>' +
+        '<td style="padding:6px;color:#86868b">' + escapeHtml(row.prompt || '(no prompt)') + '</td>' +
+        '<td style="padding:6px;color:#007aff;font-weight:600">' + escapeHtml(row.value) + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    sinEl.innerHTML = html;
+  } else {
+    sinEl.style.display = 'none';
+  }
+
   // GUI/描画系ライブラリの動作可否警告
   const guiEl = document.getElementById('traceGuiWarn');
   const gui = result.gui_info || {};
@@ -3063,18 +3239,31 @@ function renderTraceResult(result) {
       'plt.show() を呼ばずに plt.plot() のみだと描画されません。<br>' +
       '対象関数内で plt.figure() / plt.plot() / plt.bar() 等を実行してください。');
   }
+  if (gui.uses_input && stdinConsumed.length === 0 && !result.error) {
+    msgs.push('<b>📥 input() を使うコードですが stdin が空です。</b><br>' +
+      '「ランタイム設定」の stdin 欄に値を入れてください（1行=1値）。');
+  }
+  if (gui.uses_open && filesWritten.length === 0 && !result.error && !((document.getElementById('traceFilesInput')?.value || '').trim())) {
+    msgs.push('<b>📁 open() を使うコードですが仮想ファイルが空です。</b><br>' +
+      '「ランタイム設定」の仮想ファイル欄に <code>=== filename ===</code> 形式で内容を入れてください。');
+  }
   if (blocked.length > 0) {
     const items = blocked.map(b => {
       const labels = {
-        'tkinter': 'tkinter（GUI）→ ブラウザでは動作不可。PCのPythonで実行してください。',
+        'tkinter': 'tkinter（GUI）→ ブラウザでは動作不可。PC の Python で実行してください。',
         'pygame': 'pygame → ブラウザでは動作不可。',
         'turtle': 'turtle → ブラウザでは描画不可。',
-        'PIL.Image.show': 'PIL Image.show() → ブラウザではOSの画像ビューワが起動しないため無効。',
-        'input()': 'input() → ブロッキングするため打ち切り対象。事前に値を埋めて実行してください。',
+        'PIL.Image.show': 'PIL Image.show() → ブラウザでは OS のビューワが起動しないため無効。',
+        'requests': 'requests → ブラウザの CORS 制限で大半のサイトに接続できません。Pyodide の pyodide.http を使うか PC で実行してください。',
+        'urllib': 'urllib → 同上、ブラウザ環境では動かないことが多い。',
+        'threading': 'threading → Pyodide はシングルスレッド。スレッドは作れますが意味のある並列実行はできません。',
+        'multiprocessing': 'multiprocessing → ブラウザでは動作不可。',
+        'subprocess': 'subprocess → ブラウザでは外部プロセス起動不可。',
+        'socket': 'socket → ブラウザの低レベル TCP/UDP は不可。WebSocket なら別途対応が必要。',
       };
       return '<li>' + (labels[b] || b) + '</li>';
     }).join('');
-    msgs.push('<b>⚠ ブラウザで動かない GUI/IO を検出:</b><ul style="margin:4px 0 0 18px;padding:0">' + items + '</ul>');
+    msgs.push('<b>⚠ ブラウザで動かないライブラリを検出:</b><ul style="margin:4px 0 0 18px;padding:0">' + items + '</ul>');
   }
   if (msgs.length > 0) {
     guiEl.style.display = 'block';
