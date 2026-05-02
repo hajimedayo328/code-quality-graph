@@ -239,6 +239,22 @@ def run_pattern(name: str, pattern: dict) -> dict:
         )
         checks.append(ok); print(line)
 
+    # expect_parse_errors
+    if "expect_parse_errors" in expected:
+        parse_errors = result.get("parse_errors", [])
+        err_files = {e["file"] for e in parse_errors}
+        for ef in expected["expect_parse_errors"]:
+            ok, line = _check(
+                f"構文エラー検出 '{ef}'",
+                ef in err_files,
+                f"actual_errors={err_files}",
+            )
+            checks.append(ok); print(line)
+        if parse_errors:
+            print(f"  📋 検出された構文エラー詳細:")
+            for e in parse_errors:
+                print(f"     {e['file']} L{e['line']}: {e['message']}")
+
     # 結果集計
     passed = sum(checks)
     total = len(checks)

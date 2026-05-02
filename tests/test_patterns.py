@@ -387,6 +387,25 @@ def calculate_sum(items):
 }
 
 # ==============================================================
+# Pattern H: 構文エラー（parse_errors 検証）
+# ==============================================================
+PATTERN_H_SYNTAX_ERROR = {
+    "files": {
+        "broken.py": '''def add(a, b)
+    return a + b   # コロン抜け、SyntaxError
+''',
+        "ok.py": '''def hello():
+    """正常."""
+    return "hi"
+''',
+    },
+    "expected": {
+        "n_functions": 1,           # ok.py の hello のみ
+        "expect_parse_errors": ["broken.py"],
+    },
+}
+
+# ==============================================================
 # 全パターン
 # ==============================================================
 ALL_PATTERNS = {
@@ -397,4 +416,5 @@ ALL_PATTERNS = {
     "E_dead_code":         PATTERN_E_DEAD_CODE,
     "F_shapes":            PATTERN_F_SHAPES,
     "G_duplicates":        PATTERN_G_DUPLICATES,
+    "H_syntax_error":      PATTERN_H_SYNTAX_ERROR,
 }

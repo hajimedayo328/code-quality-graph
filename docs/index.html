@@ -3130,6 +3130,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ========== 結果描画 ==========
 
 function renderResults(result) {
+  renderParseErrors(result.parse_errors);
   renderStats(result.stats);
   renderProblems(result.warnings);
   renderImpact(result.nodes);
@@ -3142,6 +3143,73 @@ function renderResults(result) {
   graphs.imports3d = null;
   initGraph3D('graph3d-container', result.nodes, result.edges);
   initImports3D('imports3d-container', result.modules, result.module_edges);
+}
+
+// 構文エラー等の解析失敗を最上部に目立つバナーで表示
+// 解析後に各ファイルカードにエラーマーカーを付与
+function markParseErrorsOnCards(errors) {
+  // 既存マーカーをクリア
+  document.querySelectorAll('.file-card .file-syntax-error').forEach(e => e.remove());
+  document.querySelectorAll('.file-card').forEach(c => c.style.borderColor = '');
+  if (!errors || errors.length === 0) return;
+  // ファイル名 → エラー の辞書
+  const map = {};
+  errors.forEach(e => {
+    const base = e.file.replace(/^.*[\/\\]/, '');
+    if (!map[base]) map[base] = [];
+    map[base].push(e);
+  });
+  document.querySelectorAll('#fileList .file-card').forEach(card => {
+    const nameInput = card.querySelector('.file-name-input');
+    if (!nameInput) return;
+    const name = nameInput.value.trim();
+    const base = name.replace(/^.*[\/\\]/, '');
+    const errs = map[name] || map[base];
+    if (errs && errs.length > 0) {
+      card.style.borderColor = '#ff3b30';
+      card.style.borderWidth = '2px';
+      const div = document.createElement('div');
+      div.className = 'file-syntax-error';
+      div.style.cssText = 'background:#fde8e8;color:#c0392b;padding:6px 10px;border-radius:6px;font-size:12px;margin-top:6px;font-family:monospace';
+      div.innerHTML = errs.map(e => `🚫 L${e.line}${e.col ? ':' + e.col : ''} ${escapeHtml(e.type)}: ${escapeHtml(e.message)}`).join('<br>');
+      card.appendChild(div);
+    }
+  });
+}
+
+function renderParseErrors(errors) {
+  markParseErrorsOnCards(errors);
+  let banner = document.getElementById('parseErrorBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'parseErrorBanner';
+    // results セクションの先頭に挿入
+    const results = document.getElementById('results');
+    if (results) results.insertBefore(banner, results.firstChild);
+  }
+  if (!errors || errors.length === 0) {
+    banner.style.display = 'none';
+    banner.innerHTML = '';
+    return;
+  }
+  const items = errors.map(e => `
+    <li style="margin:6px 0;font-family:'SF Mono',Menlo,monospace;font-size:13px">
+      <b>${escapeHtml(e.file)}</b> L${e.line}${e.col ? ':' + e.col : ''} <span style="color:#c0392b;font-weight:600">${escapeHtml(e.type)}</span>: ${escapeHtml(e.message)}
+      ${e.text ? `<div style="background:#0a0a14;color:#ff8a80;padding:6px 10px;border-radius:6px;margin-top:4px;font-size:12px">${escapeHtml(e.text)}</div>` : ''}
+    </li>
+  `).join('');
+  banner.style.display = 'block';
+  banner.innerHTML = `
+    <div style="background:#fde8e8;border:2px solid #ff3b30;border-radius:12px;padding:14px 18px;margin-bottom:16px">
+      <div style="font-size:15px;font-weight:700;color:#c0392b;margin-bottom:6px">
+        🚫 構文エラーで解析できなかったファイルが ${errors.length} 件あります
+      </div>
+      <div style="font-size:12px;color:#856404;margin-bottom:8px">
+        これらのファイルはグラフや指標に含まれていません。修正してから「解析する」を押し直してください。
+      </div>
+      <ul style="margin:0;padding-left:18px;color:#1d1d1f">${items}</ul>
+    </div>
+  `;
 }
 
 function renderStats(s) {

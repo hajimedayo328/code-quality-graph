@@ -219,6 +219,7 @@ def _run_analysis(workdir: str) -> dict:
         "duplicates": duplicates,
         "cycles": import_cycles,
         "hotspots": [],  # ブラウザ版ではGit履歴なし
+        "parse_errors": getattr(analyzer, "parse_errors", []),
     }
 
 

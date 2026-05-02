@@ -91,6 +91,8 @@ class CodeAnalyzer:
         self.root = Path(root_dir).resolve()
         self.functions: dict[str, FunctionInfo] = {}
         self.modules: dict[str, ModuleInfo] = {}
+        # 構文エラー等で解析失敗したファイルを記録
+        self.parse_errors: list[dict] = []  # [{file, line, col, message, type}]
 
     def analyze(self) -> None:
         for f in sorted(self.root.rglob("*.py")):
@@ -102,7 +104,27 @@ class CodeAnalyzer:
         try:
             source = filepath.read_text(encoding="utf-8")
             tree = ast.parse(source, filename=str(filepath))
-        except (SyntaxError, UnicodeDecodeError):
+        except SyntaxError as e:
+            rel = str(filepath.relative_to(self.root)) if filepath.is_absolute() else str(filepath)
+            self.parse_errors.append({
+                "file": rel,
+                "line": e.lineno or 0,
+                "col": e.offset or 0,
+                "message": e.msg or "Syntax error",
+                "type": "SyntaxError",
+                "text": (e.text or "").rstrip("\n") if e.text else "",
+            })
+            return
+        except UnicodeDecodeError as e:
+            rel = str(filepath.relative_to(self.root)) if filepath.is_absolute() else str(filepath)
+            self.parse_errors.append({
+                "file": rel,
+                "line": 0,
+                "col": 0,
+                "message": f"文字コード解読不可: {e.reason}",
+                "type": "UnicodeDecodeError",
+                "text": "",
+            })
             return
 
         rel_path = filepath.relative_to(self.root)
