@@ -748,7 +748,7 @@ tr:hover td { background: #f9f9fb; }
 
 <div class="header">
   <h1>Code Quality Graph <span class="health-badge" id="health-badge" style="display:none"></span></h1>
-  <p class="subtitle">Pythonコードをグラフ理論で分析 - 呼び出し関係・変更影響・重複・セキュリティを可視化</p>
+  <p class="subtitle">Pythonコードをグラフ理論で可視化する <b>人間レビュー支援ツール</b> ─ 静的解析で確定問題を検出、LLMは解釈の補助、<b>最終判断はあなた</b></p>
   <button class="llm-toggle" id="llmToggleBtn" onclick="toggleLLM()" title="LLMを使ってコードを意味的に解析（オプション、初回モデルDL要）">
     🤖 <span id="llmToggleLabel">LLM: OFF</span>
   </button>
@@ -958,8 +958,12 @@ ZeroDivisionError: division by zero"></textarea>
       </div>
 
       <div id="tab-llm" class="tab-content">
+        <div class="section-desc" style="background:#fff8e1;border:1px solid #ffe082;padding:12px 14px;border-radius:10px;margin-bottom:12px">
+          <div style="font-weight:700;color:#806000;margin-bottom:4px">⚠ AI判定を100%信じないでください</div>
+          LLMは <b>人間レビューを支援する補助役</b> です。優先度付けの参考にしつつ、最終判断は必ず人間が下してください。
+          軽量モデルでは特に、誤判定・見逃し・繰り返し生成が起きます（その場合は ⚠カード で補完表示します）。
+        </div>
         <div class="section-desc">
-          <b>人間レビューの補助ツール</b>です。LLMが「気になる関数」を優先度付きで並べます。最終判断は必ず人間が。<br>
           検出精度を上げるための情報源（多いほど精度UP）：
           <b>① doctest</b>（自動抽出）→
           <b>② Inspector の意図メモ</b>（任意で書ける）→
@@ -2561,6 +2565,9 @@ async function runLLMTaskProject() {
         <span style="font-size:11px;color:#86868b">${nodes.length} 関数を一括分析</span>
       </div>
       <div class="verdict" style="white-space:pre-wrap;font-family:'SF Mono',Menlo,monospace;font-size:12px;line-height:1.6;background:#fafafa;padding:10px 12px;border-radius:8px;margin-top:6px">${escapeHtml(reply)}</div>
+      <div style="font-size:10px;color:#aaa;margin-top:6px;padding-top:6px;border-top:1px dashed #eee">
+        💡 LLMによる解釈です。下の「⚠ LLMが取り上げ忘れた候補」も合わせて確認、最終判断はあなたが行ってください。
+      </div>
     `;
     resultsEl.appendChild(card);
 
@@ -2914,6 +2921,9 @@ function buildLLMResultCard(node, parsed, taskKey, taskLabel) {
     </div>
     <div class="verdict">${escapeHtml(parsed.point || parsed.raw || '(空)')}</div>
     ${parsed.reason ? `<div class="reason">${escapeHtml(parsed.reason)}</div>` : ''}
+    <div style="font-size:10px;color:#aaa;margin-top:6px;padding-top:6px;border-top:1px dashed #eee">
+      💡 これはLLMの意見・優先度付けの参考。最終判断はあなたが行ってください。
+    </div>
   `;
   card.querySelector('.show-3d-btn').addEventListener('click', () => showNodeInfo(node));
   return card;
