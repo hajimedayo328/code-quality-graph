@@ -2538,7 +2538,32 @@ async function runLLMOverFunctions(taskKey, taskLabel, systemPrompt, filterFn) {
   setTimeout(() => { progressEl.style.display = 'none'; }, 1000);
 }
 
-// LLM に渡すコンテキストを組み立て：プロジェクト意図 / 関数意図 / doctest / 呼び出し元・先 / テスト失敗 / グラフ異常
+// doctest を「期待挙動の例」として抽出（LLMプロンプト用）
+function extractDoctestsFromSource(src) {
+  if (!src) return '';
+  const lines = src.split('\n');
+  const blocks = [];
+  let cur = null;
+  for (const line of lines) {
+    const m = line.match(/^\s*>>>\s?(.*)$/);
+    if (m) {
+      if (cur) blocks.push(cur);
+      cur = { source: m[1], want: [] };
+    } else if (cur) {
+      const stripped = line.trim();
+      if (!stripped || /^\s*"""/.test(line)) {
+        if (cur.want.length || cur.source) blocks.push(cur);
+        cur = null;
+      } else {
+        cur.want.push(stripped);
+      }
+    }
+  }
+  if (cur) blocks.push(cur);
+  return blocks.map(b => '>>> ' + b.source + '\n' + b.want.join('\n')).join('\n');
+}
+
+// LLM に渡すコンテキストを組み立て：関数意図 / doctest / 呼び出し元・先 / テスト失敗 / グラフ異常
 function buildLLMPromptForNode(node, src) {
   const sections = [];
 
