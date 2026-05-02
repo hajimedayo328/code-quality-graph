@@ -2496,7 +2496,7 @@ async function runLLMTaskProject() {
 
 【絶対禁止】
 1. 入力フォーマット（"foo(1args) @file:10 [...] smells=[...]"等）をそのままコピペ
-2. **関数名に `(Nargs)` や `@file:line` を付けて出力**（label は関数名のみ。`add(2args)` ではなく `add` と書く）
+2. **関数名に "(Nargs)" や "@file:line" を付けて出力**（label は関数名のみ。"add(2args)" ではなく "add" と書く）
 3. ラベル「関数名:」「機能名:」を文字通り書く
 4. 🚨ISOLATED や 🔓SEC があるのに SUSPICIOUS を空にする
 5. プロジェクト目的に明らかに不要な機能（評価/集計/シェル/eval等）があるのに見逃す
@@ -2509,7 +2509,7 @@ async function runLLMTaskProject() {
 11. **MISSING を空 or 1個で止める**（複数の観点から最低2個。ただしプロジェクト目的に
     「データ保持/状態管理」が含まれない場合は永続化を MISSING に入れない）
 12. **SUMMARY で言及した問題を MISSING/SUSPICIOUS で省略**
-13. **magic_number 1〜2個だけで SUSPICIOUS にする**（`print(2,3)` のような
+13. **magic_number 1〜2個だけで SUSPICIOUS にする**（"print(2,3)" のような
     テストコードの引数は magic_number 検出されるが SUSPICIOUS じゃない）
 14. **電卓・数学ライブラリ等の純粋関数プロジェクトに永続化を MISSING で要求**
     （プロジェクト目的に「データ管理」「ストレージ」等が無ければ永続化は不要）
