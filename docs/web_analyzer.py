@@ -251,12 +251,12 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
             return "<unprintable>"
 
     def tracer(frame, event, arg):  # noqa: ARG001
-        # ユーザーファイル配下の関数のみトレース（contextlib 等の内部ライブラリ排除）
-        filename = frame.f_code.co_filename
-        if WORK_DIR not in filename:
-            return tracer
         name = frame.f_code.co_name
         if name not in user_funcs:
+            return tracer
+        # 標準ライブラリの同名関数は除外（contextlib.RedirectStdout.__init__ 等の偶然衝突防止）
+        filename = frame.f_code.co_filename
+        if "/lib/python" in filename or "/site-packages/" in filename or "<frozen" in filename:
             return tracer
         if event == "call":
             step[0] += 1
