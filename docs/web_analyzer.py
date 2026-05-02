@@ -238,10 +238,16 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
     namespace, load_errors = _build_namespace(files)
     user_funcs = _extract_user_funcs(files)
 
+    # 暴走防止の上限値
+    MAX_STEPS = 2000          # トレース総ステップ数（call+return合計）
+    MAX_DEPTH = 80            # 再帰・呼び出しネスト深さ
+    MAX_STDOUT = 10_000       # 標準出力バイト数
+
     trace: list[dict] = []
     step = [0]
     depth = [0]
     call_stack: list[dict] = []  # 対応する return で埋めるため
+    truncated = {"reason": None}  # 打ち切り理由
 
     def _safe_repr(v) -> str:
         try:
@@ -251,6 +257,16 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
             return "<unprintable>"
 
     def tracer(frame, event, arg):  # noqa: ARG001
+        # ★ 暴走打ち切り（無限ループ・暴走再帰対策）
+        if step[0] >= MAX_STEPS:
+            if truncated["reason"] is None:
+                truncated["reason"] = f"トレース上限({MAX_STEPS}ステップ)到達、以降は記録のみスキップ（実行は続行）"
+            return None  # 以降このフレームのイベントは記録しない（実行は止めない）
+        if depth[0] > MAX_DEPTH:
+            if truncated["reason"] is None:
+                truncated["reason"] = f"再帰/ネスト深さ上限({MAX_DEPTH})到達、深い呼び出しは記録スキップ"
+            return None
+
         name = frame.f_code.co_name
         if name not in user_funcs:
             return tracer
@@ -335,13 +351,23 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
     finally:
         sys.settrace(None)
 
+    # stdout 上限（巨大出力防止）
+    stdout_text = captured.getvalue()
+    stdout_truncated = False
+    if len(stdout_text) > MAX_STDOUT:
+        stdout_text = stdout_text[:MAX_STDOUT] + f"\n... (上限{MAX_STDOUT}バイト超、以降省略)"
+        stdout_truncated = True
+
     return {
         "trace": trace,
-        "stdout": captured.getvalue(),
+        "stdout": stdout_text,
+        "stdout_truncated": stdout_truncated,
         "expr_value": expr_value,
         "error": error_msg,
         "load_errors": load_errors,
         "user_funcs": sorted(user_funcs),
+        "truncated": truncated["reason"],
+        "limits": {"max_steps": MAX_STEPS, "max_depth": MAX_DEPTH, "max_stdout": MAX_STDOUT},
     }
 
 

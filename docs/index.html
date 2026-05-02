@@ -2951,6 +2951,12 @@ function renderTraceResult(result) {
     '<span>戻り: <b>' + returns.length + '</b></span>' +
     (result.expr_value !== null && result.expr_value !== undefined
       ? '<span>結果: <b>' + escapeHtml(result.expr_value) + '</b></span>' : '') +
+    (result.truncated
+      ? '<div style="flex-basis:100%;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px 10px;margin-top:6px;color:#806000;font-size:12px">⏱ 打ち切り: ' + escapeHtml(result.truncated) + '</div>'
+      : '') +
+    (result.stdout_truncated
+      ? '<div style="flex-basis:100%;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px 10px;margin-top:6px;color:#806000;font-size:12px">📤 標準出力上限到達、以降は省略されています</div>'
+      : '') +
     (result.error
       ? '<div class="err" style="white-space:pre-wrap">⚠ エラー: ' + escapeHtml(result.error) + '</div>'
       : '');
