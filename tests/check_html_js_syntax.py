@@ -46,14 +46,14 @@ def main() -> int:
             encoding="utf-8",
         )
         if result.returncode == 0:
-            print(f"✅ JS 構文 OK ({len(combined)} chars, {len(blocks)} blocks)")
+            print(f"[OK] JS syntax valid ({len(combined)} chars, {len(blocks)} blocks)")
             return 0
         else:
-            print(f"❌ 構文エラー検出:")
+            print("[NG] syntax error detected:")
             print(result.stderr)
             return 2
     except FileNotFoundError:
-        print("⚠ node が見つかりません。Node.js をインストールしてください")
+        print("[WARN] node not found. Install Node.js")
         return 3
     finally:
         Path(tmp_path).unlink(missing_ok=True)
