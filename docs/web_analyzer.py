@@ -310,14 +310,15 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
     try:
         sys.settrace(tracer)
         with redirect_stdout(captured):
-            # mode='single' だと REPL風（最後の式の repr が出力される）
-            code_obj = compile(expr, "<expr>", "single")
-            exec(code_obj, namespace)
-        # 念のため expr を eval しても結果取得試行
-        try:
-            expr_value = _safe_repr(eval(expr, namespace))
-        except Exception:
-            pass
+            # 1回の実行で「副作用＋結果取得」を済ませる
+            # 単一式なら eval、複文なら exec にフォールバック
+            try:
+                code_obj = compile(expr, "<expr>", "eval")
+                expr_value = _safe_repr(eval(code_obj, namespace))
+            except SyntaxError:
+                # eval できない（代入や複文など）→ exec
+                code_obj = compile(expr, "<expr>", "exec")
+                exec(code_obj, namespace)
     except RuntimeError as e:
         msg = str(e)
         if "asyncio.run" in msg or "event loop" in msg or "running event loop" in msg:
