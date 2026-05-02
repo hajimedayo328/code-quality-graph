@@ -248,6 +248,9 @@ def _detect_gui_libraries(files: dict[str, str]) -> dict:
         "uses_open": False,
         "uses_argv": False,
         "uses_random": False,
+        "uses_datetime": False,
+        "uses_env": False,
+        "uses_sleep": False,
         "blocked": [],
     }
     blocked_patterns = [
@@ -267,6 +270,9 @@ def _detect_gui_libraries(files: dict[str, str]) -> dict:
     open_pat = re.compile(r"\bopen\s*\(")
     argv_pat = re.compile(r"\bsys\.argv\b|\bargparse\b")
     random_pat = re.compile(r"\bimport\s+random\b|\bfrom\s+random\b|\brandom\.")
+    datetime_pat = re.compile(r"\bimport\s+datetime\b|\bfrom\s+datetime\b|\bdatetime\.(now|today|utcnow)\b")
+    env_pat = re.compile(r"\bos\.environ\b|\bos\.getenv\b")
+    sleep_pat = re.compile(r"\btime\.sleep\b|\bsleep\(")
     for code in files.values():
         if mpl_pat.search(code):
             detected["matplotlib"] = True
@@ -278,6 +284,12 @@ def _detect_gui_libraries(files: dict[str, str]) -> dict:
             detected["uses_argv"] = True
         if random_pat.search(code):
             detected["uses_random"] = True
+        if datetime_pat.search(code):
+            detected["uses_datetime"] = True
+        if env_pat.search(code):
+            detected["uses_env"] = True
+        if sleep_pat.search(code):
+            detected["uses_sleep"] = True
         for name, pat in blocked_patterns:
             if re.search(pat, code) and name not in detected["blocked"]:
                 detected["blocked"].append(name)
@@ -332,6 +344,9 @@ def trace_execution(
     virtual_files: dict | None = None,
     argv: list | None = None,
     random_seed: int | None = None,
+    freeze_datetime: str | None = None,
+    env_vars: dict | None = None,
+    skip_sleep: bool = False,
 ) -> dict:
     """ユーザー指定の式を実行し、関数呼び出しを引数・戻り値・順序付きで記録。
 
@@ -340,6 +355,9 @@ def trace_execution(
     virtual_files: {filename: content} のdict。open()でこの辞書から読み書きする（実FS非依存）。
     argv: sys.argv に注入する文字列リスト。argv[0] は自動で "<trace>" になる。
     random_seed: int を渡すと random.seed(int) で再現性確保。
+    freeze_datetime: ISO 形式 (例 "2024-01-15T10:30:00") を渡すと datetime.now/today/utcnow を固定。
+    env_vars: {key: value} を os.environ に注入。終了時に元に戻す。
+    skip_sleep: True なら time.sleep を no-op に置換（長いループのトレース高速化）。
     """
     # GUI系ライブラリ検出（matplotlib/tkinter/pygame等の事前警告用）
     gui_info = _detect_gui_libraries(files)
@@ -482,6 +500,70 @@ def trace_execution(
         except Exception:  # noqa: BLE001
             pass
 
+    # ===== datetime 凍結（now/today/utcnow を固定） =====
+    _orig_dt_class = None
+    _dt_module = None
+    if freeze_datetime:
+        try:
+            import datetime as _dt
+            _dt_module = _dt
+            _orig_dt_class = _dt.datetime
+            iso = str(freeze_datetime)
+            _orig_class_ref = _orig_dt_class
+
+            class _FrozenDateTime(_orig_class_ref):  # type: ignore
+                @classmethod
+                def now(cls, tz=None):
+                    d = _orig_class_ref.fromisoformat(iso)
+                    if tz is not None:
+                        try:
+                            d = d.replace(tzinfo=tz)
+                        except Exception:  # noqa: BLE001
+                            pass
+                    return d
+
+                @classmethod
+                def utcnow(cls):
+                    return _orig_class_ref.fromisoformat(iso)
+
+                @classmethod
+                def today(cls):
+                    return _orig_class_ref.fromisoformat(iso)
+
+            _dt.datetime = _FrozenDateTime  # type: ignore[assignment]
+            # namespace に既に from datetime import datetime されてた場合に備えて差し替え
+            if "datetime" in namespace and isinstance(namespace.get("datetime"), type):
+                namespace["datetime"] = _FrozenDateTime
+        except Exception:  # noqa: BLE001
+            pass
+
+    # ===== os.environ 注入 =====
+    _orig_env_snapshot = dict(os.environ)
+    if env_vars:
+        try:
+            for k, v in env_vars.items():
+                os.environ[str(k)] = str(v)
+        except Exception:  # noqa: BLE001
+            pass
+
+    # ===== time.sleep を no-op 化 =====
+    _orig_sleep = None
+    _time_module = None
+    sleep_calls = [0]
+    if skip_sleep:
+        try:
+            import time as _time
+            _time_module = _time
+            _orig_sleep = _time.sleep
+
+            def _noop_sleep(_seconds):  # noqa: ARG001
+                sleep_calls[0] += 1
+                return None
+
+            _time.sleep = _noop_sleep  # type: ignore[assignment]
+        except Exception:  # noqa: BLE001
+            pass
+
     # 暴走防止の上限値
     MAX_STEPS = 2000          # トレース総ステップ数（call+return合計）
     MAX_DEPTH = 80            # 再帰・呼び出しネスト深さ
@@ -607,6 +689,27 @@ def trace_execution(
             sys.argv = _orig_argv
         except Exception:  # noqa: BLE001
             pass
+        # datetime 復元
+        try:
+            if _orig_dt_class is not None and _dt_module is not None:
+                _dt_module.datetime = _orig_dt_class
+        except Exception:  # noqa: BLE001
+            pass
+        # os.environ 復元（追加されたキーを削除＋元の値で上書き）
+        try:
+            for k in list(os.environ.keys()):
+                if k not in _orig_env_snapshot:
+                    del os.environ[k]
+            for k, v in _orig_env_snapshot.items():
+                os.environ[k] = v
+        except Exception:  # noqa: BLE001
+            pass
+        # time.sleep 復元
+        try:
+            if _orig_sleep is not None and _time_module is not None:
+                _time_module.sleep = _orig_sleep
+        except Exception:  # noqa: BLE001
+            pass
 
     # stdout 上限（巨大出力防止）
     stdout_text = captured.getvalue()
@@ -632,6 +735,7 @@ def trace_execution(
         "gui_info": gui_info,
         "stdin_consumed": stdin_consumed,
         "stdin_provided": len(stdin_buf),
+        "sleep_calls_skipped": sleep_calls[0],
         "files_written": [
             {
                 "name": k,

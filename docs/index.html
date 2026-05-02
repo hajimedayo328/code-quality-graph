@@ -1059,6 +1059,44 @@ ZeroDivisionError: division by zero"></textarea>
                 </div>
               </div>
 
+              <div data-runtime-section="datetime">
+                <label class="trace-label">🕐 datetime.now() を固定（時刻凍結）</label>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  <label style="font-size:12px;display:flex;align-items:center;gap:4px">
+                    <input type="checkbox" id="traceDatetimeEnable">
+                    時刻を固定する
+                  </label>
+                  <input type="datetime-local" id="traceDatetimeInput" value="2026-01-01T00:00:00"
+                    style="font-family:'SF Mono',Menlo,monospace;font-size:12px;padding:6px;border:1px solid #d0d0d0;border-radius:6px">
+                  <span class="hint" style="font-size:11px">datetime.now() / today() / utcnow() がこの時刻を返します</span>
+                </div>
+              </div>
+
+              <div data-runtime-section="env">
+                <label class="trace-label">🔑 環境変数（os.environ / os.getenv）</label>
+                <div class="hint" style="font-size:11px;margin-bottom:4px">
+                  <code>KEY=VALUE</code> 形式で 1行ずつ。例:<br>
+                  <code>API_KEY=test-token<br>DEBUG=1</code>
+                </div>
+                <textarea id="traceEnvInput"
+                  placeholder="API_KEY=test-token&#10;DEBUG=1"
+                  style="width:100%;min-height:60px;font-family:'SF Mono',Menlo,monospace;font-size:12px;padding:8px;border:1px solid #d0d0d0;border-radius:6px"></textarea>
+                <div class="hint" style="font-size:11px;margin-top:4px;color:#86868b">
+                  実行終了時に元の環境変数に復元されます（実機の環境変数を汚染しません）。
+                </div>
+              </div>
+
+              <div data-runtime-section="sleep">
+                <label class="trace-label">⏩ time.sleep() をスキップ（高速化）</label>
+                <label style="font-size:12px;display:flex;align-items:center;gap:4px">
+                  <input type="checkbox" id="traceSkipSleep">
+                  sleep を no-op に置換する
+                </label>
+                <div class="hint" style="font-size:11px;margin-top:4px;color:#86868b">
+                  ループ内で sleep する処理を瞬時に通します。スキップ回数は実行後に表示されます。
+                </div>
+              </div>
+
             </div>
           </details>
           <div class="hint" id="traceStatus" style="margin-top:8px">先に「解析する」を済ませてください</div>
@@ -2905,11 +2943,17 @@ function _updateRuntimeDetailsHints() {
     const usesOpen = /\bopen\s*\(/.test(allCode);
     const usesArgv = /\bsys\.argv\b|\bargparse\b/.test(allCode);
     const usesRandom = /\brandom\./.test(allCode);
+    const usesDatetime = /\bdatetime\.(now|today|utcnow)\b/.test(allCode);
+    const usesEnv = /\bos\.environ\b|\bos\.getenv\b/.test(allCode);
+    const usesSleep = /\btime\.sleep\b|\bsleep\(/.test(allCode);
     const detected = [];
     if (usesInput) detected.push('input');
     if (usesOpen) detected.push('open');
     if (usesArgv) detected.push('sys.argv');
     if (usesRandom) detected.push('random');
+    if (usesDatetime) detected.push('datetime');
+    if (usesEnv) detected.push('os.environ');
+    if (usesSleep) detected.push('time.sleep');
     const labelEl = document.getElementById('traceRuntimeSummaryLabel');
     const details = document.getElementById('traceRuntimeDetails');
     if (!labelEl || !details) return;
@@ -2917,7 +2961,7 @@ function _updateRuntimeDetailsHints() {
       labelEl.innerHTML = '🔧 ランタイム設定（<b style="color:#ff9500">' + detected.join(', ') + ' を検出</b>、設定推奨）';
       details.open = true;
     } else {
-      labelEl.innerHTML = 'ランタイム設定（input / 仮想ファイル / sys.argv / random.seed）';
+      labelEl.innerHTML = 'ランタイム設定（input / 仮想ファイル / argv / random / datetime / env / sleep）';
       details.open = false;
     }
     // 各セクションを使用中のものだけ強調
@@ -2925,7 +2969,9 @@ function _updateRuntimeDetailsHints() {
     sections.forEach(s => {
       const k = s.getAttribute('data-runtime-section');
       const used = (k === 'input' && usesInput) || (k === 'files' && usesOpen) ||
-                   (k === 'argv' && usesArgv) || (k === 'random' && usesRandom);
+                   (k === 'argv' && usesArgv) || (k === 'random' && usesRandom) ||
+                   (k === 'datetime' && usesDatetime) || (k === 'env' && usesEnv) ||
+                   (k === 'sleep' && usesSleep);
       s.style.opacity = used ? '1' : '0.5';
     });
   } catch (e) {
@@ -3103,12 +3149,41 @@ async function runTrace() {
     const seedEnabled = document.getElementById('traceSeedEnable')?.checked;
     const seedVal = seedEnabled ? parseInt(document.getElementById('traceSeedInput')?.value || '42', 10) : null;
 
+    // datetime 凍結: チェック時のみ ISO 文字列を渡す
+    const dtEnabled = document.getElementById('traceDatetimeEnable')?.checked;
+    let dtIso = null;
+    if (dtEnabled) {
+      const raw = document.getElementById('traceDatetimeInput')?.value || '';
+      // <input type="datetime-local"> は秒付き ISO（YYYY-MM-DDTHH:MM[:SS]）を返す
+      dtIso = raw.length === 16 ? raw + ':00' : raw;
+    }
+
+    // 環境変数: KEY=VALUE を1行ずつ
+    const envRaw = (document.getElementById('traceEnvInput')?.value || '').trim();
+    const envDict = {};
+    if (envRaw) {
+      envRaw.split(/\r?\n/).forEach(line => {
+        const eq = line.indexOf('=');
+        if (eq > 0) {
+          const k = line.slice(0, eq).trim();
+          const v = line.slice(eq + 1);
+          if (k) envDict[k] = v;
+        }
+      });
+    }
+
+    // time.sleep スキップ
+    const skipSleep = !!document.getElementById('traceSkipSleep')?.checked;
+
     pyodide.globals.set('trace_files_input', pyodide.toPy(filesDict));
     pyodide.globals.set('trace_expr_input', expr);
     pyodide.globals.set('trace_stdin_lines', pyodide.toPy(stdinLines));
     pyodide.globals.set('trace_virtual_files', pyodide.toPy(virtualFiles));
     pyodide.globals.set('trace_argv_input', argvList ? pyodide.toPy(argvList) : null);
     pyodide.globals.set('trace_seed_input', (seedVal !== null && !isNaN(seedVal)) ? seedVal : null);
+    pyodide.globals.set('trace_dt_input', dtIso);
+    pyodide.globals.set('trace_env_input', pyodide.toPy(envDict));
+    pyodide.globals.set('trace_skip_sleep', skipSleep);
     await pyodide.runPythonAsync(`
 import json
 _trace_result = trace_execution(
@@ -3118,6 +3193,9 @@ _trace_result = trace_execution(
     virtual_files=dict(trace_virtual_files) if trace_virtual_files else None,
     argv=list(trace_argv_input) if trace_argv_input else None,
     random_seed=trace_seed_input,
+    freeze_datetime=trace_dt_input,
+    env_vars=dict(trace_env_input) if trace_env_input else None,
+    skip_sleep=bool(trace_skip_sleep),
 )
 _trace_result_json = json.dumps(_trace_result, ensure_ascii=False, default=str)
     `);
@@ -3146,6 +3224,8 @@ function renderTraceResult(result) {
     '<span>戻り: <b>' + returns.length + '</b></span>' +
     (result.expr_value !== null && result.expr_value !== undefined
       ? '<span>結果: <b>' + escapeHtml(result.expr_value) + '</b></span>' : '') +
+    (result.sleep_calls_skipped > 0
+      ? '<span>⏩ sleep skip: <b>' + result.sleep_calls_skipped + '回</b></span>' : '') +
     (result.truncated
       ? '<div style="flex-basis:100%;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px 10px;margin-top:6px;color:#806000;font-size:12px">⏱ 打ち切り: ' + escapeHtml(result.truncated) + '</div>'
       : '') +
