@@ -230,11 +230,87 @@ def analyze_json(code: str) -> str:
 
 # ========== 実行トレース（縦長3D + 値遷移ログ用）==========
 
+def _detect_gui_libraries(files: dict[str, str]) -> dict:
+    """ユーザーコードで使われているGUI/描画系ライブラリを検出。
+
+    matplotlib → ブラウザで動く（画像キャプチャ可能）
+    tkinter/pygame/PIL.show/turtle → ブラウザで動かない（事前に警告）
+    """
+    detected = {"matplotlib": False, "blocked": []}
+    blocked_patterns = [
+        ("tkinter", r"\bimport\s+tkinter|\bfrom\s+tkinter\b|\bimport\s+Tkinter\b"),
+        ("pygame", r"\bimport\s+pygame\b|\bfrom\s+pygame\b"),
+        ("turtle", r"\bimport\s+turtle\b|\bfrom\s+turtle\b"),
+        ("PIL.Image.show", r"\.show\(\s*\).*#.*PIL|Image\.open.*\.show\(\)"),
+        ("input()", r"\binput\s*\("),
+    ]
+    mpl_pat = re.compile(r"\bimport\s+matplotlib\b|\bfrom\s+matplotlib\b|\bmatplotlib\.pyplot\b|\bimport\s+pyplot\b")
+    for code in files.values():
+        if mpl_pat.search(code):
+            detected["matplotlib"] = True
+        for name, pat in blocked_patterns:
+            if re.search(pat, code) and name not in detected["blocked"]:
+                detected["blocked"].append(name)
+    return detected
+
+
+def _capture_matplotlib_figures() -> list[dict]:
+    """現在開いている matplotlib の全 Figure を PNG (base64) としてキャプチャ。
+
+    matplotlib が読み込まれていない場合は空リストを返す。
+    キャプチャ後は close() してメモリを解放。
+    """
+    images: list[dict] = []
+    try:
+        import matplotlib
+        # 非対話バックエンド固定（tkinter等を呼び出さない）
+        matplotlib.use("Agg", force=True)
+        import matplotlib.pyplot as plt
+        import base64 as _b64
+        nums = plt.get_fignums()
+        for i, num in enumerate(nums):
+            try:
+                fig = plt.figure(num)
+                buf = io.BytesIO()
+                fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
+                buf.seek(0)
+                b64 = _b64.b64encode(buf.read()).decode("ascii")
+                # 画像サイズ取得
+                w, h = fig.get_size_inches()
+                images.append({
+                    "index": i + 1,
+                    "data_url": f"data:image/png;base64,{b64}",
+                    "width_in": round(w, 2),
+                    "height_in": round(h, 2),
+                    "title": (fig._suptitle.get_text() if getattr(fig, "_suptitle", None) else "") or "",
+                })
+            except Exception:  # noqa: BLE001
+                pass
+        # 解放（次回実行時に積み重ならないように）
+        plt.close("all")
+    except ImportError:
+        pass
+    except Exception:  # noqa: BLE001
+        pass
+    return images
+
+
 def trace_execution(files: dict[str, str], expr: str) -> dict:
     """ユーザー指定の式を実行し、関数呼び出しを引数・戻り値・順序付きで記録。
 
     expr 例: "add(2, 3)" / "main()" / "TaskManager().add(Task(1, 'x', 3, '2030-01-01'))"
     """
+    # GUI系ライブラリ検出（matplotlib/tkinter/pygame等の事前警告用）
+    gui_info = _detect_gui_libraries(files)
+
+    # matplotlib があれば事前に Agg バックエンドへ切り替え（重要：import 時点で決定するため）
+    if gui_info["matplotlib"]:
+        try:
+            import matplotlib
+            matplotlib.use("Agg", force=True)
+        except ImportError:
+            pass
+
     namespace, load_errors = _build_namespace(files)
     user_funcs = _extract_user_funcs(files)
 
@@ -358,6 +434,9 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
         stdout_text = stdout_text[:MAX_STDOUT] + f"\n... (上限{MAX_STDOUT}バイト超、以降省略)"
         stdout_truncated = True
 
+    # matplotlib の Figure を PNG (base64) として吸い出す（描画系コード対応）
+    images = _capture_matplotlib_figures()
+
     return {
         "trace": trace,
         "stdout": stdout_text,
@@ -368,6 +447,8 @@ def trace_execution(files: dict[str, str], expr: str) -> dict:
         "user_funcs": sorted(user_funcs),
         "truncated": truncated["reason"],
         "limits": {"max_steps": MAX_STEPS, "max_depth": MAX_DEPTH, "max_stdout": MAX_STDOUT},
+        "images": images,
+        "gui_info": gui_info,
     }
 
 

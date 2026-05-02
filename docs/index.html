@@ -191,6 +191,30 @@ body { background: #f5f5f7; color: #1d1d1f; font-family: -apple-system, BlinkMac
 .trace-stdout-header {
   color: #86868b; font-size: 11px; margin-bottom: 4px; font-weight: 600;
 }
+.trace-images {
+  margin-top: 12px; background: #fff; border: 1px solid #e5e5e5;
+  border-radius: 10px; padding: 12px;
+}
+.trace-images-header {
+  font-size: 12px; font-weight: 700; margin-bottom: 8px; color: #1d1d1f;
+}
+.trace-images-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;
+}
+.trace-image-card {
+  border: 1px solid #e5e5e5; border-radius: 8px; padding: 8px; background: #fafafa;
+}
+.trace-image-card img {
+  width: 100%; height: auto; display: block; border-radius: 4px; background: #fff;
+}
+.trace-image-caption {
+  font-size: 11px; color: #86868b; margin-top: 4px; text-align: center;
+}
+.trace-gui-warn {
+  margin-top: 10px; background: #fff8e1; border: 1px solid #ffe082;
+  border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #806000;
+}
+.trace-gui-warn b { color: #5a4400; }
 
 /* ===== Phase D: 進化を見る ===== */
 .evo-mode-tabs { display: flex; gap: 6px; margin: 12px 0 16px; border-bottom: 1px solid #e5e5e5; }
@@ -1003,6 +1027,8 @@ ZeroDivisionError: division by zero"></textarea>
             </div>
           </div>
           <div id="traceStdout" class="trace-stdout" style="display:none"></div>
+          <div id="traceImages" class="trace-images" style="display:none"></div>
+          <div id="traceGuiWarn" class="trace-gui-warn" style="display:none"></div>
         </div>
       </div>
 
@@ -2940,6 +2966,21 @@ async function runTrace() {
       filesDict[safe] = f.code;
     }
 
+    // GUI/描画系ライブラリ検出 → matplotlib があれば事前ロード（重い、初回 5-10秒）
+    const allCode = validFiles.map(f => f.code).join('\n');
+    const usesMpl = /\bimport\s+matplotlib\b|\bfrom\s+matplotlib\b|\bmatplotlib\.pyplot\b|\bimport\s+pyplot\b/.test(allCode);
+    if (usesMpl && !window._mplLoaded) {
+      status.textContent = '📊 matplotlib を読み込み中（初回 5-10秒）...';
+      try {
+        await pyodide.loadPackage(['matplotlib']);
+        window._mplLoaded = true;
+        status.textContent = '実行中...';
+      } catch (mplErr) {
+        console.warn('matplotlib load failed:', mplErr);
+        status.textContent = '⚠ matplotlib 読み込み失敗、画像なしで実行...';
+      }
+    }
+
     pyodide.globals.set('trace_files_input', pyodide.toPy(filesDict));
     pyodide.globals.set('trace_expr_input', expr);
     await pyodide.runPythonAsync(`
@@ -2989,6 +3030,57 @@ function renderTraceResult(result) {
     stdoutEl.innerHTML = '<div class="trace-stdout-header">📤 標準出力</div>' + escapeHtml(result.stdout);
   } else {
     stdoutEl.style.display = 'none';
+  }
+
+  // matplotlib 画像
+  const imgEl = document.getElementById('traceImages');
+  const images = result.images || [];
+  if (images.length > 0) {
+    imgEl.style.display = 'block';
+    let html = '<div class="trace-images-header">📊 描画された Figure（' + images.length + ' 枚）</div>';
+    html += '<div class="trace-images-grid">';
+    for (const im of images) {
+      const cap = (im.title ? escapeHtml(im.title) + ' ・ ' : '') +
+        'Figure ' + im.index + '（' + im.width_in + '×' + im.height_in + ' inch）';
+      html += '<div class="trace-image-card">' +
+        '<img src="' + im.data_url + '" alt="figure ' + im.index + '">' +
+        '<div class="trace-image-caption">' + cap + '</div>' +
+        '</div>';
+    }
+    html += '</div>';
+    imgEl.innerHTML = html;
+  } else {
+    imgEl.style.display = 'none';
+  }
+
+  // GUI/描画系ライブラリの動作可否警告
+  const guiEl = document.getElementById('traceGuiWarn');
+  const gui = result.gui_info || {};
+  const blocked = gui.blocked || [];
+  const msgs = [];
+  if (gui.matplotlib && images.length === 0 && !result.error) {
+    msgs.push('<b>📊 matplotlib を import していますが Figure が見つかりません。</b><br>' +
+      'plt.show() を呼ばずに plt.plot() のみだと描画されません。<br>' +
+      '対象関数内で plt.figure() / plt.plot() / plt.bar() 等を実行してください。');
+  }
+  if (blocked.length > 0) {
+    const items = blocked.map(b => {
+      const labels = {
+        'tkinter': 'tkinter（GUI）→ ブラウザでは動作不可。PCのPythonで実行してください。',
+        'pygame': 'pygame → ブラウザでは動作不可。',
+        'turtle': 'turtle → ブラウザでは描画不可。',
+        'PIL.Image.show': 'PIL Image.show() → ブラウザではOSの画像ビューワが起動しないため無効。',
+        'input()': 'input() → ブロッキングするため打ち切り対象。事前に値を埋めて実行してください。',
+      };
+      return '<li>' + (labels[b] || b) + '</li>';
+    }).join('');
+    msgs.push('<b>⚠ ブラウザで動かない GUI/IO を検出:</b><ul style="margin:4px 0 0 18px;padding:0">' + items + '</ul>');
+  }
+  if (msgs.length > 0) {
+    guiEl.style.display = 'block';
+    guiEl.innerHTML = msgs.join('<hr style="border:none;border-top:1px solid #ffe082;margin:8px 0">');
+  } else {
+    guiEl.style.display = 'none';
   }
 
   // 縦長3Dビュー
