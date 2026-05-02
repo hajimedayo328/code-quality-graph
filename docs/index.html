@@ -2520,8 +2520,17 @@ async function runLLMTaskProject() {
     例: ファクトに「docstring を持つ関数: add」とあるのに「doctest がない」と書く
     こういう事実誤認は致命的、必ずファクト欄を読んでから判定する
 16. **【超最重要】プロジェクト目的を読み飛ばし、過去テンプレ（在庫管理/価格・数量等）を流用する禁止**
-    タスク管理目的なのに「在庫管理として致命的」「価格チェック」など別ジャンル用語を使うのは
-    完全な幻覚。MISSING の各項目は必ず「目の前のプロジェクト目的に対して何が足りないか」のみ書く
+    タスク管理目的なのに「在庫管理として致命的」「価格チェック」「価格・数量範囲」など
+    別ジャンル用語を使うのは完全な幻覚。MISSING の各項目は必ず「目の前のプロジェクト目的に対して
+    何が足りないか」のみ書く。価格・在庫・数量・商品 等の語はプロジェクト目的に明示されてない限り使用禁止。
+18. **コード内に既に存在する機能を MISSING で要求する禁止**
+    例: save_tasks/load_tasks が関数一覧にあるのに MISSING で「永続化が無い」と書くのは矛盾
+    関数一覧をよく読み、機能の有無を確認してから MISSING を書く
+19. **存在しない関数名を勝手に発明して書く禁止**
+    例: 関数一覧に `TaskManager.add` があるのに `add_task` と書く、`save_tasks` を `save_data` と書く
+    必ずサマリーに書かれた label をそのまま使う
+20. **「役割不明確」「用途不明」など曖昧な理由禁止**
+    SUSPICIOUS の reason は必ず具体的に: 「セキュリティ穴」「目的に無関係な集計」など
 17. **公開API系の ISOLATED 関数を SUSPICIOUS に入れない**
     save_* / load_* / export_* / parse_* / format_* などの命名は
     「外部から呼ばれる前提」のユーティリティ。main から呼ばれてないだけでは怪しくない
@@ -2655,6 +2664,48 @@ async function runLLMTaskProject() {
       `;
       resultsEl.appendChild(missCard);
     }
+
+    // ===== 静的解析ベースの「事実」カード（LLM の幻覚に対する証拠）=====
+    const factCard = document.createElement('div');
+    factCard.className = 'llm-result-card good';
+    factCard.dataset.priority = 90;
+    // パターンマッチで機能の有無を検出
+    const fnLabels = nodes.map(n => n.label.toLowerCase());
+    const allFnNames = fnLabels.join(' ');
+    const checks = [
+      { name: '永続化', pattern: /save|load|persist|dump|write|store/, evidence: nodes.filter(n => /save|load|persist|dump|store/i.test(n.label)) },
+      { name: 'エラー処理', pattern: /catch|handle|error|except/, evidence: nodes.filter(n => /catch|handle.*error|except/i.test(n.label)) },
+      { name: 'バリデーション', pattern: /valid|check|verify/, evidence: nodes.filter(n => /valid|check|verify/i.test(n.label)) },
+      { name: 'テスト', pattern: /test_|_test/, evidence: nodes.filter(n => /test_|_test|^test$/i.test(n.label)) },
+      { name: 'ロギング', pattern: /log|trace/, evidence: nodes.filter(n => /^log$|logger/i.test(n.label)) },
+      { name: '非同期', pattern: /async/, evidence: nodes.filter(n => n.func_type === 'async') },
+      { name: 'ジェネレータ', pattern: /generator/, evidence: nodes.filter(n => n.func_type === 'generator') },
+    ];
+    const checkRows = checks.map(c => {
+      const hit = c.evidence.length > 0;
+      const icon = hit ? '✅' : '❌';
+      const detail = hit
+        ? `<span style="color:#1b7a3d">あり: ${c.evidence.map(n => n.label).slice(0, 3).join(', ')}${c.evidence.length > 3 ? `…他${c.evidence.length - 3}個` : ''}</span>`
+        : '<span style="color:#86868b">関数名パターンで検出されず</span>';
+      return `<div style="display:flex;gap:10px;padding:5px 0;font-size:12px">
+        <span style="min-width:24px">${icon}</span>
+        <span style="font-weight:600;min-width:90px">${c.name}</span>
+        <span>${detail}</span>
+      </div>`;
+    }).join('');
+    factCard.innerHTML = `
+      <div class="header">
+        <span class="target">📊 静的解析による事実チェック</span>
+        <span class="severity-badge" style="background:#e8f8ef;color:#1b7a3d">機能の有無</span>
+        <span style="font-size:11px;color:#86868b">関数名パターンで検出</span>
+      </div>
+      <div style="margin-top:8px">${checkRows}</div>
+      <div style="font-size:11px;color:#86868b;margin-top:8px;line-height:1.5">
+        💡 LLMが「○○がない」と言っても、ここで✅なら実装あり。LLMの幻覚や見落としを検証する用。
+        関数名ベースの簡易検出なので、別命名や1関数内の実装は拾えない場合あり。
+      </div>
+    `;
+    resultsEl.appendChild(factCard);
 
     progressFill.style.width = '100%';
     status.textContent = 'プロジェクト整合性判定 完了';
