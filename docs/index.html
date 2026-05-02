@@ -2480,11 +2480,13 @@ async function runLLMTaskProject() {
   → 普通のアプリ（在庫管理・タスク管理等）なら **必ず最優先で SUSPICIOUS**。
     プロジェクト目的に明示されてない限り、このフラグは見逃すな。
 
-- 🚨ISOLATED: 誰からも呼ばれてない孤立関数。**ここは判断を分ける**:
+- 🚨ISOLATED: 誰からも呼ばれてない孤立関数。**3パターンに分類**:
   (a) その関数の役割がプロジェクト目的の **中核機能** ＝ 「呼ばれるべきなのに呼ばれてない」
       → SUSPICIOUS じゃなく **MISSING** に「○○の呼び出しが見当たらない」と書く
-      （例: 在庫管理プロジェクトの add_stock が ISOLATED → MISSING に「main から add_stock 呼び出しが無い」）
-  (b) その関数の役割がプロジェクト目的に **無関係** ＝ そもそも要らない
+  (b) **公開API系**（save_*, load_*, export_*, parse_*, format_* 等のユーティリティ）
+      → ISOLATED でも CLI/モジュール API として外部から呼ばれる前提なので **SUSPICIOUS にしない**
+      （main から呼ばれてないことを根拠に怪しいとは言うな）
+  (c) その関数の役割がプロジェクト目的に **無関係** ＝ そもそも要らない（unused/deprecated/another等の名前が付いた未使用ヘルパー）
       → SUSPICIOUS
 
 - ⚠DANGER または 低スコア: 要改善で目的を阻害する可能性 → SUSPICIOUS 候補
@@ -2517,6 +2519,12 @@ async function runLLMTaskProject() {
     例: ファクトに「entry 関数: main」と書いてあるのに「main 関数が存在しない」と書く
     例: ファクトに「docstring を持つ関数: add」とあるのに「doctest がない」と書く
     こういう事実誤認は致命的、必ずファクト欄を読んでから判定する
+16. **【超最重要】プロジェクト目的を読み飛ばし、過去テンプレ（在庫管理/価格・数量等）を流用する禁止**
+    タスク管理目的なのに「在庫管理として致命的」「価格チェック」など別ジャンル用語を使うのは
+    完全な幻覚。MISSING の各項目は必ず「目の前のプロジェクト目的に対して何が足りないか」のみ書く
+17. **公開API系の ISOLATED 関数を SUSPICIOUS に入れない**
+    save_* / load_* / export_* / parse_* / format_* などの命名は
+    「外部から呼ばれる前提」のユーティリティ。main から呼ばれてないだけでは怪しくない
 
 【出力形式】
 
@@ -2567,7 +2575,10 @@ async function runLLMTaskProject() {
       `- ファイル数: ${[...new Set(nodes.map(n => n.file))].length} 個\n` +
       `- entry 関数（main 等）: ${entryFuncs.length > 0 ? entryFuncs.join(', ') : 'なし'}\n` +
       `- docstring を持つ関数: ${hasDocstring.length > 0 ? hasDocstring.join(', ') : 'なし'}\n` +
-      `これらは静的解析で確定した事実。「main 関数が存在しない」「docstring がない」など事実と反する判定をしないこと。\n`;
+      `これらは静的解析で確定した事実。「main 関数が存在しない」「docstring がない」など事実と反する判定をしないこと。\n` +
+      `\n【★プロジェクト目的の再確認（必読、他プロジェクトのテンプレ流用禁止）】\n` +
+      `${projectIntent}\n` +
+      `→ MISSING の項目は必ず上記の目的に対して書くこと。「在庫管理」「価格・数量」など別ジャンルの用語混入は完全禁止。\n`;
 
     // 強制候補は冒頭に配置（軽量モデルは後半を見逃しがち）
     const userPrompt = `【プロジェクトの目的】\n${projectIntent}\n` +
